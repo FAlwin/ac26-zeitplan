@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v20</title>
+<title>Meilensteinplan · AC 2026 · v21</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1211,35 +1211,45 @@ function checkUserPermission(){
 // canEdit: definiert weiter unten (Zeile ~3657) – alle Nutzer mit Login dürfen bearbeiten
 
 // ── SYNC TEAM MEMBERS FROM GRAPH ─────────────────────────────────────────────
-// Versucht Members über verschiedene API-Routen zu laden (Fallback-Kette)
-async function fetchTeamMembers(tid, token){
-  // Routen in Prioritätsreihenfolge versuchen
+// Versucht Members über verschiedene API-Routen zu laden – mit vollständiger Diagnose
+async function fetchTeamMembers(tid, token, diagLog){
+  const log=(msg,color)=>{
+    if(diagLog) diagLog.push({msg,color});
+    console.log(`[Teams] ${msg}`);
+  };
+
   const routes=[
-    `${GRAPH_BASE}/teams/${tid}/members`,                       // Standard Teams-Members
-    `${GRAPH_BASE}/groups/${tid}/members/microsoft.graph.user`, // Nur User aus Gruppe (kein 403 wenn Owner)
-    `${GRAPH_BASE}/groups/${tid}/members`,                      // Alle Gruppen-Members
-    `${GRAPH_BASE}/groups/${tid}/transitiveMembers/microsoft.graph.user`, // Transitive User
-    `${GRAPH_BASE}/groups/${tid}/transitiveMembers`,            // Alle transitiven Members
+    {url:`${GRAPH_BASE}/teams/${tid}/members`,          label:"teams/members"},
+    {url:`${GRAPH_BASE}/groups/${tid}/members/microsoft.graph.user`, label:"groups/members/user"},
+    {url:`${GRAPH_BASE}/groups/${tid}/members`,         label:"groups/members"},
+    {url:`${GRAPH_BASE}/groups/${tid}/transitiveMembers/microsoft.graph.user`, label:"transitive/user"},
   ];
-  for(const url of routes){
+
+  for(const {url,label} of routes){
     try{
       const res=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});
+      const status=res.status;
       if(res.ok){
         const d=await res.json();
-        const members=(d.value||[])
-          .filter(m=>m.displayName&&(m["@odata.type"]||"").includes("user"))
-          .map(m=>({name:m.displayName,email:(m.mail||m.userPrincipalName||"").toLowerCase()}));
-        // Auch ohne @odata.type versuchen wenn leer
-        if(!members.length){
-          const all=(d.value||[]).filter(m=>m.displayName);
-          if(all.length) return all.map(m=>({name:m.displayName,email:(m.mail||m.userPrincipalName||"").toLowerCase()}));
-        }
-        return members;
+        const all=(d.value||[]).filter(m=>m.displayName);
+        const users=all.filter(m=>(m["@odata.type"]||"").includes("user"));
+        const result=(users.length?users:all).map(m=>({
+          name:m.displayName,
+          email:(m.mail||m.userPrincipalName||"").toLowerCase()
+        }));
+        log(`  ✓ [${label}] → ${result.length} Mitglieder (${all.length} total)`,"var(--accent)");
+        return result;
+      } else {
+        // Fehlermeldung aus Response lesen
+        let errBody="";
+        try{const j=await res.json();errBody=(j.error?.message||j.error?.code||"");}catch{}
+        log(`  ✗ [${label}] → ${status}: ${errBody.slice(0,80)}`,"var(--overdue)");
       }
-      console.warn(`Members ${url} → HTTP ${res.status}`);
-    }catch(e){console.warn(`Members ${url} error:`,e);}
+    }catch(e){
+      log(`  ✗ [${label}] → Exception: ${e.message.slice(0,60)}`,"var(--overdue)");
+    }
   }
-  return []; // Alle Routen fehlgeschlagen
+  return [];
 }
 
 async function syncTeamMembers(teamLinks){
@@ -1337,18 +1347,20 @@ async function syncAllTeamMembersBtn(){
     // Per-team member fetch mit Fallback-Kette
     let membersLoaded=0,teamErrors=0,routeLog=[];
     setStatus(`${allTeams.length} Teams gefunden – lade Mitglieder…`);
+    const diagLog=[];
     for(const team of allTeams){
-      const members=await fetchTeamMembers(team.id,token);
+      diagLog.push({msg:`▶ ${team.displayName}:`,color:"var(--text)"});
+      const members=await fetchTeamMembers(team.id,token,diagLog);
       if(members.length>0){
         members.forEach(m=>{
           const existing=PERSONS.find(p=>p.name===m.name||(p.email&&p.email===m.email&&m.email));
           if(!existing){PERSONS.push({name:m.name,color:randomPersonColor(),email:m.email});membersLoaded++;}
           else if(!existing.email&&m.email){existing.email=m.email;}
         });
-        routeLog.push(`✓ ${team.displayName}: ${members.length} Mitglieder`);
+        // diagLog hat bereits Details aus fetchTeamMembers
       } else {
         teamErrors++;
-        routeLog.push(`✗ ${team.displayName}: nicht lesbar`);
+        diagLog.push({msg:`  → alle Routen fehlgeschlagen`,color:"var(--overdue)"});
         console.warn(`Team ${team.displayName} (${team.id}): alle Routes fehlgeschlagen`);
       }
     }
@@ -1364,8 +1376,9 @@ async function syncAllTeamMembersBtn(){
     }
     // Detail-Log anzeigen
     const logEl=document.getElementById("syncTeamsBtnStatus");
-    if(logEl&&routeLog.length){
-      resultMsg+=`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:9px;color:var(--dim)">Details (${routeLog.length} Teams)</summary><div style="font-size:9px;margin-top:4px;line-height:1.7">${routeLog.map(l=>`<div>${l}</div>`).join("")}</div></details>`;
+    if(logEl&&diagLog.length){
+      const diagHtml=diagLog.map(l=>`<div style="color:${l.color||"var(--muted)"}">${l.msg}</div>`).join("");
+      resultMsg+=`<details style="margin-top:6px;cursor:pointer"><summary style="font-size:9px;color:var(--dim)">Details anzeigen (${allTeams.length} Teams)</summary><div style="font-size:9px;margin-top:4px;line-height:1.8;background:var(--surface2);padding:6px 8px;border-radius:4px;max-height:200px;overflow-y:auto">${diagHtml}</div></details>`;
     }
     setStatus(resultMsg,teamErrors===0?"var(--accent)":"var(--today)");
 
