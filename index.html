@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v19</title>
+<title>Meilensteinplan · AC 2026 · v20</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -810,6 +810,7 @@ body.classic .sub-toggle{display:none!important}
       </div>
       <div class="fa">
         <button class="btn btn-g" onclick="closeModal('plannerModal')">Schließen</button>
+        <button class="btn btn-g" id="plRelabelBtn" onclick="doRelabelPlanner()" title="Nur Labels/Kategorie-Namen neu setzen ohne Tasks zu ändern">🏷 Labels aktualisieren</button>
         <button class="btn btn-p" id="plExportBtn" onclick="doExportToPlanner()">▶ Exportieren</button>
       </div>
     </div>
@@ -817,7 +818,9 @@ body.classic .sub-toggle{display:none!important}
     <!-- Tab: Import -->
     <div id="plTabImp" style="display:none">
       <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Liest Status-Änderungen aus dem Planner zurück in den Zeitplan. Nur Status wird übernommen – keine Datums- oder Namenänderungen.
+        Liest Status-Änderungen aus Planner zurück in den Zeitplan. Nur Status wird übernommen.<br>
+        <span style="color:var(--today)">⚡ Priorität: Zeitplan ist Quelle der Wahrheit.</span><br>
+        Bei Konflikten gewinnt der Zeitplan – Planner ist die Team-Ansicht.
       </p>
       <div id="plImportPreview" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;max-height:240px;overflow-y:auto"></div>
       <div id="plImportProgress" style="display:none;text-align:center;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)">
@@ -1200,9 +1203,11 @@ function checkUserPermission(){
 async function fetchTeamMembers(tid, token){
   // Routen in Prioritätsreihenfolge versuchen
   const routes=[
-    `${GRAPH_BASE}/teams/${tid}/members`,           // Standard Teams-Members
-    `${GRAPH_BASE}/groups/${tid}/members`,           // Gruppen-Members (oft weniger restriktiv)
-    `${GRAPH_BASE}/groups/${tid}/transitiveMembers`, // Transitive Members inkl. verschachtelte Gruppen
+    `${GRAPH_BASE}/teams/${tid}/members`,                       // Standard Teams-Members
+    `${GRAPH_BASE}/groups/${tid}/members/microsoft.graph.user`, // Nur User aus Gruppe (kein 403 wenn Owner)
+    `${GRAPH_BASE}/groups/${tid}/members`,                      // Alle Gruppen-Members
+    `${GRAPH_BASE}/groups/${tid}/transitiveMembers/microsoft.graph.user`, // Transitive User
+    `${GRAPH_BASE}/groups/${tid}/transitiveMembers`,            // Alle transitiven Members
   ];
   for(const url of routes){
     try{
@@ -3773,13 +3778,13 @@ async function doExportToPlanner(){
     let planLabels={};
     let labelsSupported=true;
     try{
+      // Plan-Details laden (Beta) für Label-Slot-Namen
       const planDetails=await graphReq("GET",`/planner/plans/${planId}/details`,null,null,true);
       planLabels=planDetails.categoryDescriptions||{};
-      // Finde freie Slots und weise Gruppen zu
+      // Freie Slots für Gruppen zuweisen
       const usedSlots=new Set(Object.values(labelMap));
       for(const g of groups){
-        if(labelMap[g.key]) continue; // bereits zugewiesen
-        // Suche freien Slot (category1–category25)
+        if(labelMap[g.key]) continue;
         for(let i=1;i<=25;i++){
           const slot=`category${i}`;
           if(!usedSlots.has(slot)){
@@ -3789,24 +3794,44 @@ async function doExportToPlanner(){
           }
         }
       }
-      // Label-Namen setzen (Gruppen-Namen in die Slots schreiben)
+      // Label-Namen aktualisieren wenn nötig
       const labelUpdates={};
       let needsUpdate=false;
       for(const [gkey,slot] of Object.entries(labelMap)){
         const g=getG(gkey);
-        if(planLabels[slot]!==g.name){labelUpdates[slot]=g.name;needsUpdate=true;}
+        if(!g.name) continue;
+        if((planLabels[slot]||"")!==g.name){
+          labelUpdates[slot]=g.name;
+          needsUpdate=true;
+        }
       }
       if(needsUpdate){
-        await graphReq("PATCH",`/planner/plans/${planId}/details`,{categoryDescriptions:labelUpdates},planDetails["@odata.etag"],true);
-        plLog(`  ✓ Labels gesetzt: ${groups.map(g=>g.name).join(", ")}`,"var(--accent)");
+        // etag vom Details-Objekt holen (nicht vom Plan)
+        const detailEtag=planDetails["@odata.etag"];
+        await graphReq("PATCH",`/planner/plans/${planId}/details`,{categoryDescriptions:labelUpdates},detailEtag,true);
+        plLog(`  ✓ Labels aktualisiert: ${Object.values(labelUpdates).join(", ")}`,"var(--accent)");
       } else {
-        plLog(`  ✓ Labels bereits aktuell`,"var(--muted)");
+        plLog(`  ✓ Label-Namen bereits aktuell`,"var(--muted)");
       }
       plannerSettings.labelMap=labelMap;
       localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
     }catch(e){
       labelsSupported=false;
-      plLog(`  ⚠ Beta-Labels nicht verfügbar (${e.message.slice(0,60)}) – Gruppe wird als Titel-Präfix hinzugefügt`,"var(--today)");
+      plLog(`  ⚠ Label-Namen (Beta-API) nicht setzbar: ${e.message.slice(0,80)}`,"var(--today)");
+      plLog(`    Labels werden trotzdem als Kategorie-Slots gesetzt (ohne Namen)`,"var(--dim)");
+      // Fallback: labelsSupported bleibt true, Labels werden ohne Namen gesetzt
+      labelsSupported=true;
+      // Slot-Zuweisung trotzdem speichern
+      const usedSlots2=new Set(Object.values(labelMap));
+      for(const g of groups){
+        if(labelMap[g.key]) continue;
+        for(let i=1;i<=25;i++){
+          const slot=`category${i}`;
+          if(!usedSlots2.has(slot)){labelMap[g.key]=slot;usedSlots2.add(slot);break;}
+        }
+      }
+      plannerSettings.labelMap=labelMap;
+      localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
     }
 
     // 4. Vorhandene Planner-Tasks laden
@@ -3889,19 +3914,20 @@ async function doExportToPlanner(){
         }
       }
 
-      // 7. Label via Beta-API setzen (Gruppen-Zuordnung)
+      // 7. Label auf Task-Objekt setzen (v1.0 API – appliedCategories auf Task)
       if(labelsSupported&&labelMap[t.group]&&taskId){
         try{
-          const td=await graphReq("GET",`/planner/tasks/${taskId}/details`,null,null,true);
-          const cats=td.appliedCategories||{};
+          // appliedCategories liegt auf dem Task selbst, nicht den Details
+          const existingTask=ptMap[taskId]||await graphReq("GET",`/planner/tasks/${taskId}`);
+          const cats=existingTask.appliedCategories||{};
           const slot=labelMap[t.group];
           if(!cats[slot]){
             cats[slot]=true;
-            await graphReq("PATCH",`/planner/tasks/${taskId}/details`,{appliedCategories:cats},td["@odata.etag"],true);
+            await graphReq("PATCH",`/planner/tasks/${taskId}`,{appliedCategories:cats},existingTask["@odata.etag"]);
           }
         }catch(le){
           labelFailed++;
-          if(labelFailed===1) plLog(`  ⚠ Labels (Beta-API): ${le.message.slice(0,60)}`,"var(--today)");
+          if(labelFailed===1) plLog(`  ⚠ Labels: ${le.message.slice(0,80)}`,"var(--today)");
         }
       }
     }
@@ -3925,6 +3951,70 @@ async function doExportToPlanner(){
   exportBtn.style.display="";progressWrap.style.display="none";
 }
 
+
+// ── LABELS NEU SETZEN ─────────────────────────────────────────────────────────
+async function doRelabelPlanner(){
+  const planId=plannerSettings.planId;
+  if(!planId){alert("Kein Plan konfiguriert.");return;}
+  const btn=document.getElementById("plRelabelBtn");
+  if(btn){btn.disabled=true;btn.textContent="⏳…";}
+  plLog("","");
+  plLog("▶ Labels aktualisieren…","var(--muted)");
+  const logWrap=document.getElementById("plExportLog");
+  if(logWrap)logWrap.style.display="";
+  try{
+    let labelMap=plannerSettings.labelMap||{};
+    // Plan-Details laden
+    const planDetails=await graphReq("GET",`/planner/plans/${planId}/details`,null,null,true);
+    const planLabels=planDetails.categoryDescriptions||{};
+    // Slots zuweisen
+    const usedSlots=new Set(Object.values(labelMap));
+    for(const g of groups){
+      if(labelMap[g.key]) continue;
+      for(let i=1;i<=25;i++){
+        const slot=`category${i}`;
+        if(!usedSlots.has(slot)){labelMap[g.key]=slot;usedSlots.add(slot);break;}
+      }
+    }
+    // Namen setzen
+    const updates={};
+    for(const [gkey,slot] of Object.entries(labelMap)){
+      const g=getG(gkey);if(!g.name)continue;
+      if((planLabels[slot]||"")!==g.name) updates[slot]=g.name;
+    }
+    if(Object.keys(updates).length>0){
+      await graphReq("PATCH",`/planner/plans/${planId}/details`,{categoryDescriptions:updates},planDetails["@odata.etag"],true);
+      plLog(`✓ Label-Namen gesetzt: ${Object.entries(updates).map(([s,n])=>`${s}="${n}"`).join(", ")}`,"var(--accent)");
+    } else {
+      plLog("✓ Label-Namen bereits aktuell","var(--muted)");
+    }
+    // Auf alle Tasks anwenden
+    const ptRes=await graphReq("GET",`/planner/plans/${planId}/tasks`);
+    const ptMap={};(ptRes.value||[]).forEach(pt=>ptMap[pt.id]=pt);
+    let labeled=0;
+    for(const t of tasks){
+      if(!t.plannerTaskId||!labelMap[t.group])continue;
+      const existingPt=ptMap[t.plannerTaskId];if(!existingPt)continue;
+      const slot=labelMap[t.group];
+      const cats=existingPt.appliedCategories||{};
+      if(!cats[slot]){
+        cats[slot]=true;
+        try{
+          await graphReq("PATCH",`/planner/tasks/${t.plannerTaskId}`,{appliedCategories:cats},existingPt["@odata.etag"]);
+          labeled++;
+        }catch(e){plLog(`  ✗ ${t.task.slice(0,30)}: ${e.message.slice(0,60)}`,"var(--overdue)");}
+      }
+    }
+    plannerSettings.labelMap=labelMap;
+    localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+    save();
+    plLog(`✓ ${labeled} Task${labeled!==1?"s":""} mit Labels versehen`,"var(--accent)");
+  }catch(e){
+    plLog(`✗ ${e.message}`,"var(--overdue)");
+    console.error("Relabel:",e);
+  }
+  if(btn){btn.disabled=false;btn.textContent="🏷 Labels aktualisieren";}
+}
 // ── IMPORT ← PLANNER ─────────────────────────────────────────────────────────
 let _plannerImportData=null;
 
