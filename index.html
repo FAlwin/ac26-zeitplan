@@ -2882,7 +2882,7 @@ document.addEventListener("mousemove",e=>{
   }
 });
 
-document.addEventListener("mouseup",e=>{
+document.addEventListener("mouseup",async e=>{
   if(drawState){
     const {startX,tbars,ghost,tip,trow}=drawState;
     ghost.remove();tip.remove();
