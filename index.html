@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v17</title>
+<title>Meilensteinplan · AC 2026 · v18</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -461,6 +461,7 @@ body.classic .sub-toggle{display:none!important}
     <span id="authStatusText">–</span>
     <button class="auth-btn" onclick="manualSync()" title="SharePoint jetzt synchronisieren">↺ SharePoint</button>
     <button class="auth-btn edit-only" id="plannerSyncBtn" onclick="oneClickPlannerSync()" title="Planner einmal synchronisieren" style="display:none">📋 Planner</button>
+    <button class="auth-btn" id="reloginBtn" onclick="msalRelogin()" title="Neu anmelden um neue Berechtigungen zu aktivieren" style="display:none;color:var(--today);border-color:var(--today)">⚠ Neu anmelden</button>
     <button class="auth-btn" onclick="msalLogout()">Abmelden</button>
   </div>
   <button class="auth-btn login" id="loginBtn" onclick="msalLogin()">⊙ Mit Microsoft anmelden</button>
@@ -987,7 +988,7 @@ const SP_SITE="https://aczeltlager.sharepoint.com/sites/AC-Zeitplan";
 const SP_FILE="ac26_data.json";
 const GRAPH_BASE="https://graph.microsoft.com/v1.0";
 // Alle benötigten Scopes zusammen – verhindert Token-Cache-Konflikte mit Planner
-const SCOPES=["Sites.ReadWrite.All","User.Read","Team.ReadBasic.All","GroupMember.Read.All","Tasks.ReadWrite","Group.Read.All"];
+const SCOPES=["Sites.ReadWrite.All","User.Read","Team.ReadBasic.All","GroupMember.Read.All","Member.Read.Hidden","Tasks.ReadWrite","Group.Read.All"];
 let msalApp=null,msalAccount=null;
 let spDriveId=null,pendingSave=false;
 
@@ -1067,6 +1068,12 @@ async function msalInit(){
       if(a.length)msalAccount=a[0];
     }
     if(msalAccount){
+      // Prüfe ob gecachter Token alle aktuellen Scopes enthält
+      const needsRelogin=await checkScopesUpToDate();
+      if(needsRelogin){
+        // Scope-Mismatch: Banner anzeigen aber nicht blockieren
+        console.info("Token hat nicht alle aktuellen Scopes – Re-Login empfohlen");
+      }
       await onSignedIn();
       hideLoginOverlay();
       // Clean dead dependency references on load
@@ -1079,6 +1086,38 @@ async function msalInit(){
     showLoginOverlay();
   }
   updateAuthUI();
+}
+
+// Prüft ob der aktuelle Token alle benötigten Scopes hat
+async function checkScopesUpToDate(){
+  if(!msalApp||!msalAccount) return false;
+  try{
+    const r=await msalApp.acquireTokenSilent({scopes:SCOPES,account:msalAccount});
+    const payload=JSON.parse(atob(r.accessToken.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+    const scp=(payload.scp||"").toLowerCase();
+    const needsMemberHidden=!scp.includes("member.read.hidden");
+    if(needsMemberHidden){
+      // Zeige Relogin-Button im Auth-Banner
+      setTimeout(()=>{
+        const btn=document.getElementById("reloginBtn");
+        if(btn) btn.style.display="";
+      },500);
+      return true;
+    }
+  }catch(e){console.warn("Scope check:",e);}
+  return false;
+}
+
+// Erzwingt Re-Login mit allen aktuellen Scopes (löscht gecachten Token)
+async function msalRelogin(){
+  if(!msalApp||!msalAccount)return;
+  try{
+    // Gecachten Token für alle Scopes invalidieren
+    await msalApp.acquireTokenPopup({scopes:SCOPES,prompt:"consent",account:msalAccount});
+    window.location.reload();
+  }catch(e){
+    if(e.errorCode!=="user_cancelled") console.warn("Re-login:",e);
+  }
 }
 async function msalLogin(){
   if(!msalApp)return;
@@ -1157,27 +1196,59 @@ function checkUserPermission(){
 // canEdit: definiert weiter unten (Zeile ~3657) – alle Nutzer mit Login dürfen bearbeiten
 
 // ── SYNC TEAM MEMBERS FROM GRAPH ─────────────────────────────────────────────
+// Versucht Members über verschiedene API-Routen zu laden (Fallback-Kette)
+async function fetchTeamMembers(tid, token){
+  // Routen in Prioritätsreihenfolge versuchen
+  const routes=[
+    `${GRAPH_BASE}/teams/${tid}/members`,           // Standard Teams-Members
+    `${GRAPH_BASE}/groups/${tid}/members`,           // Gruppen-Members (oft weniger restriktiv)
+    `${GRAPH_BASE}/groups/${tid}/transitiveMembers`, // Transitive Members inkl. verschachtelte Gruppen
+  ];
+  for(const url of routes){
+    try{
+      const res=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});
+      if(res.ok){
+        const d=await res.json();
+        const members=(d.value||[])
+          .filter(m=>m.displayName&&(m["@odata.type"]||"").includes("user"))
+          .map(m=>({name:m.displayName,email:(m.mail||m.userPrincipalName||"").toLowerCase()}));
+        // Auch ohne @odata.type versuchen wenn leer
+        if(!members.length){
+          const all=(d.value||[]).filter(m=>m.displayName);
+          if(all.length) return all.map(m=>({name:m.displayName,email:(m.mail||m.userPrincipalName||"").toLowerCase()}));
+        }
+        return members;
+      }
+      console.warn(`Members ${url} → HTTP ${res.status}`);
+    }catch(e){console.warn(`Members ${url} error:`,e);}
+  }
+  return []; // Alle Routen fehlgeschlagen
+}
+
 async function syncTeamMembers(teamLinks){
   if(!teamLinks||!teamLinks.length)return;
   const token=await getToken();if(!token)return;
   const allMembers=[],allOwners=[];
   for(const tid of teamLinks){
+    // Members mit Fallback-Kette
+    const members=await fetchTeamMembers(tid,token);
+    members.forEach(m=>{
+      if(m.name&&!allMembers.find(x=>x.email===m.email&&m.email))
+        allMembers.push(m);
+    });
+    // Owners separat
     try{
-      const [mRes,oRes]=await Promise.all([
-        fetch(`${GRAPH_BASE}/teams/${tid}/members`,{headers:{Authorization:`Bearer ${token}`}}),
-        fetch(`${GRAPH_BASE}/groups/${tid}/owners`,{headers:{Authorization:`Bearer ${token}`}})
-      ]);
-      if(mRes.ok){const d=await mRes.json();(d.value||[]).forEach(m=>{const email=(m.mail||m.userPrincipalName||"").toLowerCase();if(m.displayName&&!allMembers.find(x=>x.email===email))allMembers.push({name:m.displayName,email});});}
+      const oRes=await fetch(`${GRAPH_BASE}/groups/${tid}/owners`,{headers:{Authorization:`Bearer ${token}`}});
       if(oRes.ok){const d=await oRes.json();(d.value||[]).forEach(o=>{if(o.userPrincipalName)allOwners.push(o.userPrincipalName.toLowerCase());});}
-    }catch(e){console.warn("Team sync error:",e);}
+    }catch(e){console.warn("Owners fetch error:",e);}
   }
   // Merge into PERSONS (add missing, assign random color, match by email too)
   allMembers.forEach(m=>{
-    const existing=PERSONS.find(p=>p.name===m.name||(p.email&&p.email===m.email));
+    const existing=PERSONS.find(p=>p.name===m.name||(p.email&&p.email===m.email&&m.email));
     if(!existing){
       PERSONS.push({name:m.name,color:randomPersonColor(),email:m.email});
     } else if(!existing.email&&m.email){
-      existing.email=m.email; // Backfill email
+      existing.email=m.email;
     }
   });
   // Store ownerEmails on groups with these teamLinks
@@ -1243,26 +1314,23 @@ async function syncAllTeamMembersBtn(){
     const allTeamIds=allTeams.map(t=>t.id);
     const beforeCount=PERSONS.length;
 
-    // Per-team member fetch with individual error handling
-    let membersLoaded=0,teamErrors=0;
-    for(const tid of allTeamIds){
-      try{
-        const mRes=await fetch(`${GRAPH_BASE}/teams/${tid}/members`,{headers:{Authorization:`Bearer ${token}`}});
-        if(mRes.ok){
-          const d=await mRes.json();
-          (d.value||[]).forEach(m=>{
-            const email=(m.mail||m.userPrincipalName||"").toLowerCase();
-            if(m.displayName){
-              const existing=PERSONS.find(p=>p.name===m.displayName||(p.email&&p.email===email));
-              if(!existing){PERSONS.push({name:m.displayName,color:randomPersonColor(),email});membersLoaded++;}
-              else if(!existing.email&&email){existing.email=email;}
-            }
-          });
-        } else {
-          teamErrors++;
-          console.warn(`Team ${tid} members → HTTP ${mRes.status}`);
-        }
-      }catch(te){teamErrors++;console.warn("Team member fetch:",te);}
+    // Per-team member fetch mit Fallback-Kette
+    let membersLoaded=0,teamErrors=0,routeLog=[];
+    setStatus(`${allTeams.length} Teams gefunden – lade Mitglieder…`);
+    for(const team of allTeams){
+      const members=await fetchTeamMembers(team.id,token);
+      if(members.length>0){
+        members.forEach(m=>{
+          const existing=PERSONS.find(p=>p.name===m.name||(p.email&&p.email===m.email&&m.email));
+          if(!existing){PERSONS.push({name:m.name,color:randomPersonColor(),email:m.email});membersLoaded++;}
+          else if(!existing.email&&m.email){existing.email=m.email;}
+        });
+        routeLog.push(`✓ ${team.displayName}: ${members.length} Mitglieder`);
+      } else {
+        teamErrors++;
+        routeLog.push(`✗ ${team.displayName}: nicht lesbar`);
+        console.warn(`Team ${team.displayName} (${team.id}): alle Routes fehlgeschlagen`);
+      }
     }
 
     const newCount=PERSONS.length-beforeCount;
@@ -1270,8 +1338,16 @@ async function syncAllTeamMembersBtn(){
     const timeStr=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
     let resultMsg=`✓ Sync abgeschlossen (${timeStr})<br>`;
     resultMsg+=`${allTeams.length} Team${allTeams.length!==1?"s":""} · ${newCount} neue Person${newCount!==1?"en":""} hinzugefügt · ${PERSONS.length} gesamt`;
-    if(teamErrors>0) resultMsg+=`<br><span style="color:var(--today)">⚠ ${teamErrors} Team${teamErrors!==1?"s":""} nicht lesbar (403/fehlende Berechtigungen)</span>`;
-    setStatus(resultMsg,"var(--accent)");
+    if(teamErrors>0){
+      resultMsg+=`<br><span style="color:var(--today)">⚠ ${teamErrors} Team${teamErrors!==1?"s":""} nicht lesbar</span>`;
+      resultMsg+=`<br><span style="font-size:9px;color:var(--dim)">Falls weiterhin 403: Azure Portal → Unternehmensanwendungen → AC26 → Benutzer und Gruppen → Zustimmung überprüfen</span>`;
+    }
+    // Detail-Log anzeigen
+    const logEl=document.getElementById("syncTeamsBtnStatus");
+    if(logEl&&routeLog.length){
+      resultMsg+=`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:9px;color:var(--dim)">Details (${routeLog.length} Teams)</summary><div style="font-size:9px;margin-top:4px;line-height:1.7">${routeLog.map(l=>`<div>${l}</div>`).join("")}</div></details>`;
+    }
+    setStatus(resultMsg,teamErrors===0?"var(--accent)":"var(--today)");
 
   }catch(e){
     setStatus(`✗ Fehler: ${esc(e.message)}<br><span style="font-size:9px">Details in der Browser-Konsole (F12)</span>`,"var(--overdue)");
@@ -3449,7 +3525,8 @@ async function checkPlannerPermissions(){
       {name:"Tasks.ReadWrite",ok:scp.includes("tasks.readwrite"),needed:"Planner Aufgaben lesen/schreiben"},
       {name:"Group.Read.All",ok:scp.includes("group.read.all")||scp.includes("group.readwrite.all"),needed:"Gruppen-Plan suchen"},
       {name:"User.Read",ok:scp.includes("user.read"),needed:"Login-Profil"},
-      {name:"Team.ReadBasic.All",ok:scp.includes("team.readbasic.all")||scp.includes("groupmember.read.all"),needed:"Teams-Mitglieder"},
+      {name:"Team.ReadBasic.All",ok:scp.includes("team.readbasic.all")||scp.includes("groupmember.read.all"),needed:"Teams beitreten/lesen"},
+      {name:"Member.Read.Hidden",ok:scp.includes("member.read.hidden"),needed:"Versteckte Gruppen-Mitglieder lesen"},
     ];
     const allOk=checks.every(c=>c.ok);
     box.innerHTML=checks.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="color:${c.ok?"var(--accent)":"var(--overdue)"};font-weight:600">${c.ok?"✓":"✗"}</span><span style="color:${c.ok?"var(--text)":"var(--overdue)"}">${c.name}</span><span style="color:var(--dim);font-size:9px">– ${c.needed}</span></div>`).join("");
@@ -3494,12 +3571,34 @@ async function getPlannerToken(){
 async function graphReq(method,path,body,etag,useBeta=false){
   const token=await getPlannerToken();
   if(!token) throw new Error("Kein Token – bitte anmelden");
-  const headers={"Authorization":`Bearer ${token}`,"Content-Type":"application/json"};
-  if(etag) headers["If-Match"]=etag;
-  const opts={method,headers};
-  if(body) opts.body=JSON.stringify(body);
   const base=useBeta?"https://graph.microsoft.com/beta":"https://graph.microsoft.com/v1.0";
-  const res=await fetch(`${base}${path}`,opts);
+
+  async function doReq(etagToUse){
+    const headers={"Authorization":`Bearer ${token}`,"Content-Type":"application/json"};
+    if(etagToUse) headers["If-Match"]=etagToUse;
+    const opts={method,headers};
+    if(body) opts.body=JSON.stringify(body);
+    return fetch(`${base}${path}`,opts);
+  }
+
+  let res=await doReq(etag);
+
+  // 412 Precondition Failed = eTag veraltet → frisches eTag holen und nochmal versuchen
+  if(res.status===412&&method==="PATCH"&&path.includes("/planner/tasks/")){
+    try{
+      console.warn(`Graph 412 auf ${path} – hole frisches eTag…`);
+      const freshRes=await fetch(`${base}${path}`,{headers:{"Authorization":`Bearer ${token}`}});
+      if(freshRes.ok){
+        const freshData=await freshRes.json();
+        const freshEtag=freshData["@odata.etag"];
+        if(freshEtag){
+          res=await doReq(freshEtag);
+          console.log(`Retry nach eTag-Refresh: ${res.status}`);
+        }
+      }
+    }catch(retryErr){console.warn("eTag-Retry fehlgeschlagen:",retryErr);}
+  }
+
   if(!res.ok){
     let errTxt="";try{errTxt=await res.text();}catch{}
     throw new Error(`Graph ${method} ${path} → ${res.status}: ${errTxt.slice(0,400)}`);
