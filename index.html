@@ -594,7 +594,7 @@ body.classic .sub-toggle{display:none!important}
 <!-- LIBS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
 
 <script>
 // ── MSAL / SHAREPOINT CONFIG ──────────────────────────────────────────────────
@@ -612,13 +612,12 @@ const SP_FOLDER  = "Freigegebene%20Dokumente";
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 const SCOPES     = ["Sites.ReadWrite.All", "User.Read"];
 
+// Init MSAL
 let msalApp, msalAccount = null;
 let spSiteId = null, spDriveId = null, spFileId = null;
-let syncStatus = "offline"; // offline | syncing | synced | error
+let syncStatus = "offline";
 let syncTimer = null;
 let pendingSave = false;
-
-// Init MSAL
 try {
   msalApp = new msal.PublicClientApplication(MSAL_CONFIG);
 } catch(e) {
@@ -626,7 +625,7 @@ try {
 }
 
 async function msalInit() {
-  if (!msalApp) return;
+  if (!msalApp) { updateAuthUI(); return; }
   try {
     await msalApp.initialize();
     const resp = await msalApp.handleRedirectPromise();
