@@ -1004,39 +1004,58 @@ async function overlayLogin(){
   const spinner=document.getElementById("overlaySpinner");
   const txt=document.getElementById("overlayLoginTxt");
   const hint=document.getElementById("overlayHint");
+
+  function resetBtn(errMsg){
+    if(btn){btn.disabled=false;}
+    if(spinner)spinner.style.display="none";
+    if(txt)txt.textContent="⊙ Mit Microsoft anmelden";
+    if(hint){
+      hint.style.color=errMsg?"#c0392b":"";
+      hint.textContent=errMsg||"Daten werden auf SharePoint gespeichert und synchronisiert";
+    }
+  }
+
+  if(!msalApp){resetBtn("Fehler: MSAL-Bibliothek nicht geladen. Seite neu laden.");return;}
+
+  // Ensure MSAL is initialized before trying to login
+  try{await msalApp.initialize();}catch(e){/* already initialized */}
+
   if(btn)btn.disabled=true;
   if(spinner)spinner.style.display="inline-block";
   if(txt)txt.textContent="Anmelden…";
-  if(!msalApp){if(hint)hint.textContent="Fehler: MSAL nicht geladen";if(btn)btn.disabled=false;if(spinner)spinner.style.display="none";if(txt)txt.textContent="⊙ Mit Microsoft anmelden";return;}
+  if(hint){hint.style.color="";hint.textContent="Popup-Fenster öffnet sich…";}
+
   try{
     let r;
     if(isInTeams()){
-      // In Teams: use redirect flow (popups blocked)
       if(hint)hint.textContent="Weiterleitung zur Anmeldung…";
       await msalApp.loginRedirect({scopes:SCOPES});
-      return; // page will reload after redirect
+      return;
     } else {
-      if(hint)hint.textContent="Popup-Fenster öffnet sich…";
-      r=await msalApp.loginPopup({scopes:SCOPES});
+      r=await msalApp.loginPopup({scopes:SCOPES,prompt:"select_account"});
     }
     msalAccount=r.account;
-    if(hint)hint.textContent="Angemeldet – lade Daten…";
+    if(hint){hint.style.color="";hint.textContent="Angemeldet – lade Daten…";}
     await onSignedIn();
     hideLoginOverlay();
     updateAuthUI();
   }catch(e){
-    console.warn("Overlay login failed:",e);
-    if(hint)hint.textContent="Anmeldung fehlgeschlagen – bitte erneut versuchen";
-    if(btn)btn.disabled=false;
-    if(spinner)spinner.style.display="none";
-    if(txt)txt.textContent="⊙ Mit Microsoft anmelden";
+    console.error("Login error:",e);
+    const msg=e.errorCode==="user_cancelled"
+      ?"Anmeldung abgebrochen."
+      :e.errorCode==="popup_window_error"||e.errorCode==="empty_window_error"
+      ?"Popup wurde blockiert. Bitte Popup-Blocker deaktivieren und erneut versuchen."
+      :e.errorCode==="network_error"
+      ?"Netzwerkfehler. Bitte Internetverbindung prüfen."
+      :`Fehler: ${e.message||e.errorCode||"Unbekannt"}`;
+    resetBtn(msg);
   }
 }
 
 async function msalInit(){
   if(!msalApp){showLoginOverlay();updateAuthUI();return;}
   try{
-    await msalApp.initialize();
+    try{await msalApp.initialize();}catch(ie){/* already initialized - ignore */}
     const resp=await msalApp.handleRedirectPromise();
     if(resp){
       msalAccount=resp.account;
@@ -3475,7 +3494,14 @@ loadPlannerSettings();
 
 // ── TEAMS DETECTION ──────────────────────────────────────────────────────────
 function isInTeams(){
-  try{return window.self!==window.top||navigator.userAgent.includes('Teams');}catch{return true;}
+  // Only true in actual Teams client, not generic iframes or browser extensions
+  try{
+    return navigator.userAgent.includes('Teams/') ||
+           (window.self!==window.top && (
+             document.referrer.includes('teams.microsoft.com') ||
+             document.referrer.includes('teams.live.com')
+           ));
+  }catch{return false;}
 }
 
 // ── CONFIRM DIALOG (Promise-based) ───────────────────────────────────────────
