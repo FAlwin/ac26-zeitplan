@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v14</title>
+<title>Meilensteinplan · AC 2026 · v15</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -366,6 +366,42 @@ body.classic .sub-toggle{display:none!important}
 /* bottom padding for gantt */
 .gantt-bottom-pad{height:60px;flex-shrink:0}
 
+
+/* ── PAPIERKORB ── */
+.trash-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:10px 18px;border-radius:8px;z-index:9998;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:toastIn .2s ease}
+.trash-toast button{background:var(--accent);color:var(--accent-fg);border:none;border-radius:5px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;font-weight:600}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ── AUTH BANNER COMPACT ── */
+.auth-banner.compact{padding:3px 20px}
+.auth-banner.compact .auth-name{font-size:10px}
+
+/* ── PIN MODAL ── */
+.pin-dots{display:flex;gap:10px;justify-content:center;margin:16px 0}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);transition:all .15s}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent)}
+.pin-numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:220px;margin:0 auto}
+.pin-key{padding:12px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:16px;font-weight:600;cursor:pointer;font-family:'Syne',sans-serif;transition:all .1s;text-align:center}
+.pin-key:hover{background:var(--surface3)}
+.pin-key:active{transform:scale(.95)}
+
+/* ── DEP ARROWS ── */
+.dep-svg{position:absolute;top:0;left:0;pointer-events:none;z-index:1;overflow:visible}
+.dep-arrow{fill:none;stroke-width:2;opacity:.6}
+.dep-arrow.ok{stroke:#4a9eff}
+.dep-arrow.warning{stroke:var(--overdue);opacity:.9}
+.dep-arrowhead{fill:#4a9eff;opacity:.6}
+.dep-arrowhead.warning{fill:var(--overdue);opacity:.9}
+
+/* ── COLLAPSE BTNS ── */
+.collapse-all-btn{display:flex;align-items:center;gap:4px}
+
+/* ── CONFIRM DIALOG ── */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.confirm-box{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.confirm-title{font-size:15px;font-weight:700;margin-bottom:8px}
+.confirm-msg{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;font-family:'IBM Plex Mono',monospace}
+.confirm-btns{display:flex;gap:8px;justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -394,7 +430,7 @@ body.classic .sub-toggle{display:none!important}
       <button class="mode-btn active" data-mode="classic" onclick="setMode('classic')">Übersicht</button>
       <button class="mode-btn" data-mode="interactive" onclick="setMode('interactive')">Planung</button>
     </div>
-    <button class="btn-pdf edit-only" id="plannerBtn" onclick="openPlannerModal()" title="Microsoft Planner synchronisieren" style="display:none">
+    <button class="btn-pdf edit-only" id="plannerBtn" onclick="openPlannerModalWithPin()" title="Microsoft Planner synchronisieren" style="display:none">
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
         <rect x="7" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
@@ -423,7 +459,8 @@ body.classic .sub-toggle{display:none!important}
   <div class="auth-status" id="authStatus" style="display:none">
     <div class="auth-dot offline" id="authDot"></div>
     <span id="authStatusText">–</span>
-    <button class="auth-btn" onclick="manualSync()" title="Jetzt synchronisieren">↺ Sync</button>
+    <button class="auth-btn" onclick="manualSync()" title="SharePoint jetzt synchronisieren">↺ SharePoint</button>
+    <button class="auth-btn edit-only" id="plannerSyncBtn" onclick="oneClickPlannerSync()" title="Planner einmal synchronisieren" style="display:none">📋 Planner</button>
     <button class="auth-btn" onclick="msalLogout()">Abmelden</button>
   </div>
   <button class="auth-btn login" id="loginBtn" onclick="msalLogin()">⊙ Mit Microsoft anmelden</button>
@@ -467,8 +504,8 @@ body.classic .sub-toggle{display:none!important}
     <div class="sep"></div>
     <button class="btn btn-g edit-only" onclick="openManageModal()">⊞ Gruppen verwalten</button>
     <div class="sep"></div>
-    <button class="btn btn-g" onclick="collapseAll()" title="Alle Gruppen einklappen">⊟ Alle ein</button>
-    <button class="btn btn-g" onclick="expandAll()" title="Alle Gruppen ausklappen">⊞ Alle aus</button>
+    <button class="btn btn-g collapse-all-btn" onclick="collapseAllSubs()" title="Alle Unteraufgaben einklappen">▶ Unteraufgaben ein</button>
+    <button class="btn btn-g collapse-all-btn" onclick="expandAllSubs()" title="Alle Unteraufgaben ausklappen">▼ Unteraufgaben aus</button>
     <button class="btn btn-g persons-only edit-only" onclick="openPersonsModal()">👤 Personen</button>
     <div class="sep"></div>
     <div class="vg">
@@ -792,6 +829,53 @@ body.classic .sub-toggle{display:none!important}
   </div>
 </div>
 
+
+<!-- PIN MODAL -->
+<div class="mo" id="pinModal" onclick="cmo(event,'pinModal')">
+  <div class="md" style="width:320px;text-align:center">
+    <button class="mdx" onclick="closeModal('pinModal')">✕</button>
+    <div class="mdtit" id="pinTitle">PIN eingeben</div>
+    <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:16px" id="pinSubtitle">Sync-Einstellungen sind PIN-geschützt</p>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div id="pinError" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--overdue);min-height:18px;margin-bottom:8px"></div>
+    <div class="pin-numpad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key" onclick="pinKey('del')" style="font-size:18px">⌫</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key" onclick="pinKey('ok')" style="background:var(--accent);color:var(--accent-fg);border-color:var(--accent)">OK</button>
+    </div>
+    <div id="pinSetupRow" style="display:none;margin-top:14px">
+      <button class="btn btn-g" style="width:100%;justify-content:center" onclick="startSetPin()">PIN jetzt einrichten</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG (programmatic) -->
+<div class="confirm-overlay" id="confirmOverlay" style="display:none">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirmTitle">Bestätigen</div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div id="confirmExtra" style="max-height:160px;overflow-y:auto;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)"></div>
+    <div class="confirm-btns">
+      <button class="btn btn-g" id="confirmCancel" onclick="resolveConfirm(false)">Abbrechen</button>
+      <button class="btn btn-p" id="confirmOk" onclick="resolveConfirm(true)">Bestätigen</button>
+    </div>
+  </div>
+</div>
+
 <!-- PDF MODAL -->
 <div class="mo" id="pdfModal" onclick="cmo(event,'pdfModal')">
   <div class="md" style="width:380px">
@@ -923,10 +1007,18 @@ async function overlayLogin(){
   if(btn)btn.disabled=true;
   if(spinner)spinner.style.display="inline-block";
   if(txt)txt.textContent="Anmelden…";
-  if(hint)hint.textContent="Popup-Fenster öffnet sich…";
+  if(!msalApp){if(hint)hint.textContent="Fehler: MSAL nicht geladen";if(btn)btn.disabled=false;if(spinner)spinner.style.display="none";if(txt)txt.textContent="⊙ Mit Microsoft anmelden";return;}
   try{
-    if(!msalApp){hint.textContent="Fehler: MSAL nicht geladen";btn.disabled=false;spinner.style.display="none";txt.textContent="⊙ Mit Microsoft anmelden";return;}
-    const r=await msalApp.loginPopup({scopes:SCOPES});
+    let r;
+    if(isInTeams()){
+      // In Teams: use redirect flow (popups blocked)
+      if(hint)hint.textContent="Weiterleitung zur Anmeldung…";
+      await msalApp.loginRedirect({scopes:SCOPES});
+      return; // page will reload after redirect
+    } else {
+      if(hint)hint.textContent="Popup-Fenster öffnet sich…";
+      r=await msalApp.loginPopup({scopes:SCOPES});
+    }
     msalAccount=r.account;
     if(hint)hint.textContent="Angemeldet – lade Daten…";
     await onSignedIn();
@@ -946,11 +1038,17 @@ async function msalInit(){
   try{
     await msalApp.initialize();
     const resp=await msalApp.handleRedirectPromise();
-    if(resp)msalAccount=resp.account;
-    else{const a=msalApp.getAllAccounts();if(a.length)msalAccount=a[0];}
+    if(resp){
+      msalAccount=resp.account;
+    } else {
+      const a=msalApp.getAllAccounts();
+      if(a.length)msalAccount=a[0];
+    }
     if(msalAccount){
       await onSignedIn();
       hideLoginOverlay();
+      // Clean dead dependency references on load
+      cleanDeadDeps();
     } else {
       showLoginOverlay();
     }
@@ -990,6 +1088,7 @@ async function onSignedIn(){
     setTimeout(()=>syncAllTeamMembers(),500);
     checkUserPermission();
     setSyncStatus("synced","Synchronisiert");
+    startSpPoll();
   }catch(e){console.warn("SharePoint error:",e);setSyncStatus("error","Verbindungsfehler");}
 }
 async function loadFromSharePoint(token){
@@ -1102,10 +1201,14 @@ function updateAuthUI(){
     name.innerHTML=`${esc(dn)} <span style="font-size:9px;padding:1px 6px;border-radius:3px;background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44;margin-left:4px">${role}</span>`;
     if(status)status.style.display="flex";
     if(btn)btn.style.display="none";
+    // Compact banner after login
+    const banner=document.getElementById("authBanner");
+    if(banner)banner.classList.add("compact");
     // Show/hide edit elements based on permission
     document.querySelectorAll(".edit-only").forEach(el=>el.style.display=canEdit()?"":"none");
     // Show planner button for editors
     updatePlannerBtn();
+    updatePlannerSyncBtn();
   }else{
     if(avatar)avatar.style.display="none";
     name.textContent="Nicht angemeldet – Daten werden lokal gespeichert";
@@ -1473,12 +1576,13 @@ function renderDependencies(){
   // Collect all deps: tasks and subtasks
   const allDeps=[];
   tasks.forEach(t=>{
-    if(t.dep&&tasks.find(p=>p.id===t.dep)) allDeps.push({type:"task",t,predId:t.dep});
+    if(t.dep){
+      // Support both numeric id (legacy) and "task:ID" format
+      const depId=typeof t.dep==="string"&&t.dep.startsWith("task:")?parseInt(t.dep.split(":")[1]):parseInt(t.dep);
+      if(tasks.find(p=>p.id===depId)) allDeps.push({type:"task",t,predId:depId});
+    }
     (t.subtasks||[]).forEach((s,si)=>{
-      if(s.dep){
-        // dep can reference another subtask "parentId:idx" or a task id
-        allDeps.push({type:"sub",t,si,s,predSpec:s.dep});
-      }
+      if(s.dep) allDeps.push({type:"sub",t,si,s,predSpec:s.dep});
     });
   });
   if(!allDeps.length) return;
@@ -1496,7 +1600,7 @@ function renderDependencies(){
 
   // Arrow markers
   const defs=document.createElementNS(ns,"defs");
-  [{id:"dah-n",col:"var(--muted)",op:.55},{id:"dah-w",col:"var(--overdue)",op:.9}].forEach(m=>{
+  [{id:"dah-n",col:"#4a9eff",op:.75},{id:"dah-w",col:"var(--overdue)",op:.95}].forEach(m=>{
     const mk=document.createElementNS(ns,"marker");
     mk.setAttribute("id",m.id);mk.setAttribute("markerWidth","6");mk.setAttribute("markerHeight","6");
     mk.setAttribute("refX","5");mk.setAttribute("refY","3");mk.setAttribute("orient","auto");
@@ -1540,33 +1644,46 @@ function drawArrow(svg,ns,pred,succ,predRow,succRow,inner,labelW,isWarning){
   const succRect=succRow.getBoundingClientRect();
   const innerRect=inner.getBoundingClientRect();
 
-  // X coordinates in gantt space
   const predBarEnd = labelW + cx(pred.start) + (pred.start===pred.end ? 7 : bw(pred.start,pred.end));
   const succBarStart = labelW + cx(succ.start) - (succ.start===succ.end ? 7 : 0);
 
-  // Y: center of each row, relative to inner div
   const y1 = predRect.top - innerRect.top + predRect.height/2;
   const y2 = succRect.top - innerRect.top + succRect.height/2;
-  const x1 = predBarEnd;
-  const x2 = succBarStart;
+  const x1 = predBarEnd + 2;
+  const x2 = succBarStart - 6;
 
-  // Orthogonal path: right → down → left to target
-  // Small horizontal stub right, then vertical, then horizontal to bar start
-  const stubR = 10; // pixels to the right before going down
-  const xMid = Math.max(x1 + stubR, x2 - stubR);
+  const col = isWarning ? "var(--overdue)" : "#4a9eff";
+  const op = isWarning ? 0.9 : 0.65;
+  const marker = isWarning ? "url(#dah-w)" : "url(#dah-n)";
+  const r = 5; // corner radius
 
-  const col=isWarning?"var(--overdue)":"var(--muted)";
-  const op=isWarning?0.85:0.45;
-  const marker=isWarning?"url(#dah-w)":"url(#dah-n)";
+  // Build smooth orthogonal path with rounded corners
+  const stub = 14;
+  const xMid = Math.max(x1 + stub, x2 - stub);
+  const goingDown = y2 > y1;
+  const dy = goingDown ? r : -r;
 
-  const path=document.createElementNS(ns,"path");
-  // L-shaped: right stub → down → right to target
-  const d=`M${x1},${y1} H${xMid} V${y2} H${x2}`;
+  let d;
+  if(Math.abs(y2-y1) < 4){
+    // Same row — straight line
+    d = `M${x1},${y1} H${x2}`;
+  } else if(x2 > x1 + stub*2){
+    // Normal case: right → down/up → right
+    d = `M${x1},${y1} H${xMid-r} Q${xMid},${y1} ${xMid},${y1+dy} V${y2-dy} Q${xMid},${y2} ${xMid+r},${y2} H${x2}`;
+  } else {
+    // Overlap: go right, loop around
+    const loopX = Math.max(predBarEnd + stub, succBarStart + stub);
+    d = `M${x1},${y1} H${loopX-r} Q${loopX},${y1} ${loopX},${y1+dy} V${y2-dy} Q${loopX},${y2} ${loopX-r},${y2} H${x2}`;
+  }
+
+  const path = document.createElementNS(ns,"path");
   path.setAttribute("d",d);
   path.setAttribute("fill","none");
   path.setAttribute("stroke",col);
-  path.setAttribute("stroke-width","1.5");
+  path.setAttribute("stroke-width","2");
   path.setAttribute("stroke-opacity",op);
+  path.setAttribute("stroke-linecap","round");
+  path.setAttribute("stroke-linejoin","round");
   path.setAttribute("marker-end",marker);
   svg.appendChild(path);
 }
@@ -1633,13 +1750,15 @@ function dz(d){setZoom(zoom+d);}
 
 function fitToScreen(){
   const s=document.getElementById("ganttScroll");
-  const availW=s.clientWidth-parseInt(getComputedStyle(document.documentElement).getPropertyValue("--label-w")||"280");
+  const labelW=parseInt(getComputedStyle(document.documentElement).getPropertyValue("--label-w"))||280;
+  const availW=s.clientWidth-labelW-12;
   // Build cols at zoom=1 to measure raw width
   const baseCols=buildColsAtZoom(1);
   const baseW=baseCols.reduce((a,c)=>a+c.w,0);
-  if(baseW<=0)return;
-  const fit=availW/baseW;
+  if(baseW<=0||availW<=0)return;
+  const fit=Math.min(2,Math.max(0.15,availW/baseW));
   setZoom(fit);
+  setTimeout(()=>s.scrollLeft=0,60);
 }
 
 function buildColsAtZoom(z){
@@ -1779,7 +1898,12 @@ function assignTeamToTask(id,teamName){
   else{team.members.forEach(m=>{if(!t.persons.includes(m))t.persons.push(m);});}
   save();render();renderDetail(id);
 }
-function delTask(id){if(!confirm("Aufgabe löschen?"))return;tasks=tasks.filter(t=>t.id!==id);selId=null;document.getElementById("detailPanel").classList.remove("open");save();render();}
+async function delTask(id){
+  const t=tasks.find(tt=>tt.id===id);if(!t)return;
+  const ok=await showConfirm("Aufgabe löschen",`„${t.task}" wirklich löschen?`,"","Löschen",true);
+  if(!ok)return;
+  trashTask(id);
+}
 
 // ── TASK MODAL ────────────────────────────────────────────────────────────────
 function renderPersonChips(selected){
@@ -1887,16 +2011,15 @@ function openTaskModal(id){
     depSel.value=curT?.dep||"";
   }
 }
-function deleteTaskFromModal(){
+async function deleteTaskFromModal(){
   const idStr=document.getElementById("eid").value;
   if(!idStr)return;
-  const t=tasks.find(t=>t.id===parseInt(idStr));
-  if(!t||!confirm(`„${t.task}" löschen?`))return;
-  tasks=tasks.filter(tt=>tt.id!==parseInt(idStr));
-  selId=null;
-  document.getElementById("detailPanel").classList.remove("open");
+  const t=tasks.find(tt=>tt.id===parseInt(idStr));
+  if(!t)return;
+  const ok=await showConfirm("Aufgabe löschen",`„${t.task}" wirklich löschen?`,"","Löschen",true);
+  if(!ok)return;
   closeModal("taskModal");
-  save();render();
+  trashTask(parseInt(idStr));
 }
 function saveTask(){
   const task=document.getElementById("fTask").value.trim(),start=document.getElementById("fStart").value,end=document.getElementById("fEnd").value;
@@ -1974,11 +2097,17 @@ function saveGroup(){
   if(teamLinks.length)syncTeamMembers(teamLinks);
 }
 
-function deleteGroup(){
+async function deleteGroup(){
   const key=document.getElementById("gEKey").value;if(!key)return;
   const n=tasks.filter(t=>t.group===key).length;
-  if(n>0&&!confirm(`${n} Aufgabe(n) in dieser Gruppe. Trotzdem löschen?`))return;
-  groups=groups.filter(g=>g.key!==key);save();closeModal("groupModal");render();
+  const g=groups.find(gg=>gg.key===key);
+  const ok=await showConfirm(
+    "Gruppe löschen",
+    `Gruppe „${g?.name}" und ${n} Aufgabe${n!==1?"n":""} wirklich löschen?`,
+    "","Löschen",true
+  );
+  if(!ok)return;
+  trashGroup(key);
 }
 // ── TITLE EDIT ────────────────────────────────────────────────────────────────
 function startEditTitle(){const d=document.getElementById("titleDisplay"),i=document.getElementById("titleInput");d.style.display="none";i.style.display="";i.value=ptitle;i.focus();i.select();}
@@ -2768,7 +2897,7 @@ document.addEventListener("mouseup",e=>{
     bar.style.opacity="";
     const dx=e.clientX-startX;
     barDrag=null;
-    if(Math.abs(dx)<4)return;
+    if(Math.abs(dx)<8)return;
     const total=cols.reduce((a,c)=>a+c.w,0);
     const last=cols[cols.length-1];
     let le;
@@ -2786,8 +2915,16 @@ document.addEventListener("mouseup",e=>{
     const newEnd=fmt(ad(pd(origEnd),shiftDays));
     const dir=shiftDays>0?"vorwärts":"rückwärts";
     const absDays=Math.abs(shiftDays);
-    if(!confirm(`„${t.task}" um ${absDays} Tag${absDays!==1?"e":""} ${dir} verschieben?\n\nNeu: ${fde(newStart)} – ${fde(newEnd)}`))return;
+    const ok=await showConfirm(
+      "Aufgabe verschieben",
+      `„${t.task}" um ${absDays} Tag${absDays!==1?"e":""} ${dir} verschieben?
+
+Neu: ${fde(newStart)} – ${fde(newEnd)}`
+    );
+    if(!ok)return;
     t.start=newStart;t.end=newEnd;
+    await confirmDepCascade(t,shiftDays);
+    cleanDeadDeps();
     save();render();
     return;
   }
@@ -2976,6 +3113,7 @@ function updatePlannerBtn(){
   const btn=document.getElementById("plannerBtn");
   if(btn&&msalAccount&&canEdit()) btn.style.display="";
   else if(btn) btn.style.display="none";
+  updatePlannerSyncBtn();
 }
 
 function setPlannerMode(mode){
@@ -3333,6 +3471,350 @@ function switchPlTab(tab){
 
 loadPlannerSettings();
 // ── END PLANNER ───────────────────────────────────────────────────────────────
+
+
+// ── TEAMS DETECTION ──────────────────────────────────────────────────────────
+function isInTeams(){
+  try{return window.self!==window.top||navigator.userAgent.includes('Teams');}catch{return true;}
+}
+
+// ── CONFIRM DIALOG (Promise-based) ───────────────────────────────────────────
+let _confirmResolve=null;
+function showConfirm(title,msg,extra="",okLabel="Bestätigen",danger=false){
+  return new Promise(resolve=>{
+    _confirmResolve=resolve;
+    document.getElementById("confirmTitle").textContent=title;
+    document.getElementById("confirmMsg").textContent=msg;
+    document.getElementById("confirmExtra").innerHTML=extra;
+    const ok=document.getElementById("confirmOk");
+    ok.textContent=okLabel;
+    ok.className=danger?"btn btn-d":"btn btn-p";
+    document.getElementById("confirmOverlay").style.display="flex";
+  });
+}
+function resolveConfirm(val){
+  document.getElementById("confirmOverlay").style.display="none";
+  if(_confirmResolve){_confirmResolve(val);_confirmResolve=null;}
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&document.getElementById("confirmOverlay").style.display==="flex")resolveConfirm(false);
+  if(e.key==="Enter"&&document.getElementById("confirmOverlay").style.display==="flex")resolveConfirm(true);
+},{capture:true});
+
+// ── PAPIERKORB ────────────────────────────────────────────────────────────────
+let _trash=[];
+let _trashToast=null;
+function trashTask(id){
+  const t=tasks.find(tt=>tt.id===id);if(!t)return;
+  _trash.push({type:"task",data:JSON.parse(JSON.stringify(t)),ts:Date.now()});
+  tasks=tasks.filter(tt=>tt.id!==id);
+  if(selId===id){selId=null;document.getElementById("detailPanel").classList.remove("open");}
+  save();render();
+  showTrashToast(`„${t.task}" gelöscht`,()=>restoreFromTrash());
+}
+function trashGroup(key){
+  const g=groups.find(gg=>gg.key===key);
+  const grpTasks=tasks.filter(t=>t.group===key);
+  _trash.push({type:"group",data:JSON.parse(JSON.stringify(g)),tasks:JSON.parse(JSON.stringify(grpTasks)),ts:Date.now()});
+  groups=groups.filter(gg=>gg.key!==key);
+  tasks=tasks.filter(t=>t.group!==key);
+  save();render();closeModal("groupModal");
+  showTrashToast(`Gruppe „${g.name}" gelöscht`,()=>restoreFromTrash());
+}
+function restoreFromTrash(){
+  const item=_trash.pop();if(!item)return;
+  if(item.type==="task"){tasks.push(item.data);}
+  else if(item.type==="group"){groups.push(item.data);item.tasks.forEach(t=>tasks.push(t));}
+  save();render();
+  if(_trashToast){_trashToast.remove();_trashToast=null;}
+}
+function showTrashToast(msg,undoFn){
+  if(_trashToast)_trashToast.remove();
+  const t=document.createElement("div");
+  t.className="trash-toast";
+  t.innerHTML=`<span>${msg}</span><button onclick="undoTrash()">↺ Rückgängig</button>`;
+  document.body.appendChild(t);
+  _trashToast=t;
+  window._undoTrashFn=undoFn;
+  setTimeout(()=>{if(_trashToast===t){t.remove();_trashToast=null;}},6000);
+}
+function undoTrash(){if(window._undoTrashFn)window._undoTrashFn();}
+
+// ── PIN SYSTEM ────────────────────────────────────────────────────────────────
+let _pinBuffer="";
+let _pinMode="check"; // "check" | "setup" | "setup2"
+let _pinFirstEntry="";
+let _pinCallback=null;
+let _pinHash=""; // stored in plannerSettings
+
+async function hashPin(pin){
+  const enc=new TextEncoder().encode(pin+"ac26salt");
+  const buf=await crypto.subtle.digest("SHA-256",enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function openPinModal(callback){
+  _pinCallback=callback;
+  _pinBuffer="";
+  _pinHash=plannerSettings.pinHash||"";
+  if(!_pinHash){
+    // No PIN set yet — offer setup
+    _pinMode="setup";
+    document.getElementById("pinTitle").textContent="PIN einrichten";
+    document.getElementById("pinSubtitle").textContent="Wähle einen 4-stelligen PIN für die Sync-Einstellungen";
+    document.getElementById("pinSetupRow").style.display="none";
+  } else {
+    _pinMode="check";
+    document.getElementById("pinTitle").textContent="PIN eingeben";
+    document.getElementById("pinSubtitle").textContent="Sync-Einstellungen sind PIN-geschützt";
+    document.getElementById("pinSetupRow").style.display="none";
+  }
+  updatePinDots();
+  document.getElementById("pinError").textContent="";
+  document.getElementById("pinModal").classList.add("open");
+}
+
+function startSetPin(){_pinMode="setup";_pinBuffer="";updatePinDots();document.getElementById("pinTitle").textContent="Neuen PIN wählen";document.getElementById("pinSubtitle").textContent="4-stelligen PIN eingeben";}
+
+function updatePinDots(){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById("pd"+i);
+    if(d)d.className="pin-dot"+(_pinBuffer.length>i?" filled":"");
+  }
+}
+
+async function pinKey(k){
+  if(k==="del"){_pinBuffer=_pinBuffer.slice(0,-1);updatePinDots();return;}
+  if(k==="ok"||_pinBuffer.length>=4){
+    if(k!=="ok"&&_pinBuffer.length<4){_pinBuffer+=k;updatePinDots();}
+    await processPinSubmit();return;
+  }
+  _pinBuffer+=k;
+  updatePinDots();
+  if(_pinBuffer.length===4)setTimeout(processPinSubmit,120);
+}
+
+async function processPinSubmit(){
+  if(_pinMode==="check"){
+    const h=await hashPin(_pinBuffer);
+    if(h===_pinHash){
+      closeModal("pinModal");
+      if(_pinCallback){const cb=_pinCallback;_pinCallback=null;cb();}
+    } else {
+      document.getElementById("pinError").textContent="Falscher PIN";
+      _pinBuffer="";updatePinDots();
+    }
+  } else if(_pinMode==="setup"){
+    if(_pinBuffer.length<4){document.getElementById("pinError").textContent="Bitte 4 Ziffern eingeben";return;}
+    _pinFirstEntry=_pinBuffer;_pinBuffer="";
+    _pinMode="setup2";
+    document.getElementById("pinTitle").textContent="PIN wiederholen";
+    document.getElementById("pinSubtitle").textContent="PIN zur Bestätigung nochmals eingeben";
+    updatePinDots();
+  } else if(_pinMode==="setup2"){
+    if(_pinBuffer!==_pinFirstEntry){
+      document.getElementById("pinError").textContent="PINs stimmen nicht überein";
+      _pinBuffer="";_pinFirstEntry="";_pinMode="setup";
+      document.getElementById("pinTitle").textContent="Neuen PIN wählen";
+      updatePinDots();return;
+    }
+    const h=await hashPin(_pinBuffer);
+    plannerSettings.pinHash=h;
+    localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+    save();
+    closeModal("pinModal");
+    if(_pinCallback){const cb=_pinCallback;_pinCallback=null;cb();}
+  }
+}
+
+// ── BERECHTIGUNGEN (erweitert) ────────────────────────────────────────────────
+function canEdit(){
+  // Mitglieder dürfen Aufgaben bearbeiten (Status, Personen, Zeiträume, Reihenfolge)
+  return !!msalAccount;
+}
+function isOwner(){
+  // Besitzer: Teams-Owner oder lokal im Besitzer-Array
+  if(!msalAccount)return false;
+  const email=currentUserEmail.toLowerCase();
+  return groups.some(g=>(g.ownerEmails||[]).includes(email));
+}
+function canManageStructure(){
+  // Gruppen anlegen/löschen, Aufgaben löschen
+  return isOwner();
+}
+function canAccessSyncSettings(){
+  // Nur mit PIN
+  return false; // Always requires PIN check
+}
+
+// Planner Sync Button visibility
+function updatePlannerSyncBtn(){
+  const btn=document.getElementById("plannerSyncBtn");
+  if(btn)btn.style.display=(msalAccount&&plannerSettings.planId)?"":"none";
+}
+
+// ── ONE-CLICK PLANNER SYNC ────────────────────────────────────────────────────
+async function oneClickPlannerSync(){
+  const btn=document.getElementById("plannerSyncBtn");
+  if(btn){btn.textContent="⏳ Planner…";btn.disabled=true;}
+  try{
+    // 1. Import: Status aus Planner lesen
+    if(plannerSettings.planId){
+      const res=await graphReq("GET",`/planner/plans/${plannerSettings.planId}/tasks`);
+      const plannerTasks=res.value||[];
+      const allItems=[];
+      tasks.forEach(t=>{
+        allItems.push({item:t});
+        (t.subtasks||[]).forEach(s=>allItems.push({item:s}));
+      });
+      let imported=0;
+      plannerTasks.forEach(pt=>{
+        const ns=pctToStatus(pt.percentComplete);
+        const found=allItems.find(a=>a.item.plannerTaskId===pt.id);
+        if(found&&(found.item.status||"Offen")!==ns){found.item.status=ns;imported++;}
+      });
+      if(imported>0){save();render();}
+    }
+    // 2. Export: lokale Änderungen zu Planner
+    await silentSyncToPlanner();
+    const t=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+    setSyncStatus("synced",`Planner sync ${t}`);
+  }catch(e){
+    setSyncStatus("error","Planner Fehler");
+    console.warn("One-click sync:",e);
+  }
+  if(btn){btn.textContent="📋 Planner";btn.disabled=false;}
+}
+
+// ── SHAREPOINT LIVE POLL ──────────────────────────────────────────────────────
+let _spPollInterval=null;
+let _spLastModified="";
+
+async function startSpPoll(){
+  if(_spPollInterval)clearInterval(_spPollInterval);
+  _spPollInterval=setInterval(checkSpUpdate,30000);
+}
+
+async function checkSpUpdate(){
+  if(!msalAccount||!spDriveId)return;
+  try{
+    const token=await getToken();if(!token)return;
+    const res=await fetch(`${GRAPH_BASE}/drives/${spDriveId}/root:/${SP_FILE}`,{headers:{Authorization:`Bearer ${token}`}});
+    if(!res.ok)return;
+    const meta=await res.json();
+    const lm=meta.lastModifiedDateTime||"";
+    if(_spLastModified&&lm>_spLastModified){
+      // Newer version on SharePoint — load it
+      _spLastModified=lm;
+      await loadFromSharePoint(token);
+      setSyncStatus("synced","Aktualisiert "+new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}));
+    } else if(!_spLastModified){
+      _spLastModified=lm;
+    }
+  }catch(e){console.warn("SP poll:",e);}
+}
+
+// ── COLLAPSE SUBTASKS (new behavior) ─────────────────────────────────────────
+function collapseAllSubs(){
+  tasks.forEach(t=>{if(t.subtasks&&t.subtasks.length)collSub[t.id]=true;});
+  save();render();
+}
+function expandAllSubs(){
+  tasks.forEach(t=>{if(t.subtasks&&t.subtasks.length)collSub[t.id]=false;});
+  save();render();
+}
+
+// ── DOPPELKLICK / DOPPELTAP AUF BALKEN ───────────────────────────────────────
+let _lastTap={id:null,t:0};
+function handleBarDblClick(taskId,e){
+  e.stopPropagation();
+  openTaskModal(taskId);
+}
+function handleBarTap(taskId,e){
+  const now=Date.now();
+  if(_lastTap.id===taskId&&now-_lastTap.t<400){
+    e.stopPropagation();
+    openTaskModal(taskId);
+    _lastTap={id:null,t:0};
+  } else {
+    _lastTap={id:taskId,t:now};
+  }
+}
+
+// ── PLANNER MODAL: open with PIN ─────────────────────────────────────────────
+function openPlannerModalWithPin(){
+  openPinModal(()=>openPlannerModal());
+}
+
+// ── CIRCULAR DEP CHECK ────────────────────────────────────────────────────────
+function hasCircularDep(taskId,depVal,visited=new Set()){
+  if(visited.has(taskId))return true;
+  visited.add(taskId);
+  // depVal is "task:ID" or "sub:parentId:idx"
+  const target=resolveDepTarget(depVal);
+  if(!target)return false;
+  const tDep=target.dep;
+  if(!tDep)return false;
+  return hasCircularDep(taskId,tDep,visited);
+}
+function resolveDepTarget(depVal){
+  if(!depVal)return null;
+  const parts=depVal.split(":");
+  if(parts[0]==="task"){const t=tasks.find(tt=>tt.id===parseInt(parts[1]));return t?{dep:t.dep}:null;}
+  if(parts[0]==="sub"){const t=tasks.find(tt=>tt.id===parseInt(parts[1]));if(!t||!t.subtasks)return null;const s=t.subtasks[parseInt(parts[2])];return s?{dep:s.dep}:null;}
+  return null;
+}
+
+// ── DEP CASCADE ON BAR DRAG ───────────────────────────────────────────────────
+function findSuccessors(taskId){
+  // Find all tasks/subtasks that have this task as predecessor
+  const result=[];
+  tasks.forEach(t=>{
+    if(t.dep===`task:${taskId}`)result.push({label:t.task,id:t.id,type:"task"});
+    (t.subtasks||[]).forEach((s,si)=>{
+      if(s.dep===`task:${taskId}`)result.push({label:`${t.task} › ${s.task}`,id:t.id,si,type:"sub"});
+    });
+  });
+  return result;
+}
+
+async function confirmDepCascade(movedTask,shiftDays){
+  const successors=findSuccessors(movedTask.id);
+  if(!successors.length)return true;
+  const listHtml=successors.map(s=>`<div style="padding:3px 0;border-bottom:1px solid var(--border)">▶ ${s.label}</div>`).join("");
+  const dir=shiftDays>0?"vorwärts":"rückwärts";
+  const abs=Math.abs(shiftDays);
+  const ok=await showConfirm(
+    "Nachfolger mitverschieben?",
+    `„${movedTask.task}" wird um ${abs} Tag${abs!==1?"e":""} ${dir} verschoben.
+Die folgenden abhängigen Aufgaben können ebenfalls verschoben werden:`,
+    listHtml,
+    "Alle verschieben"
+  );
+  if(ok){
+    successors.forEach(s=>{
+      if(s.type==="task"){
+        const t=tasks.find(tt=>tt.id===s.id);
+        if(t){t.start=fmt(ad(pd(t.start),shiftDays));t.end=fmt(ad(pd(t.end),shiftDays));}
+      } else {
+        const t=tasks.find(tt=>tt.id===s.id);
+        if(t&&t.subtasks&&t.subtasks[s.si]){
+          t.subtasks[s.si].start=fmt(ad(pd(t.subtasks[s.si].start),shiftDays));
+          t.subtasks[s.si].end=fmt(ad(pd(t.subtasks[s.si].end),shiftDays));
+        }
+      }
+    });
+  }
+  return true; // always proceed with the main task move
+}
+
+// ── CLEAN DEAD DEP REFS ───────────────────────────────────────────────────────
+function cleanDeadDeps(){
+  tasks.forEach(t=>{
+    if(t.dep&&!resolveDepTarget(t.dep))t.dep="";
+    (t.subtasks||[]).forEach(s=>{if(s.dep&&!resolveDepTarget(s.dep))s.dep="";});
+  });
+}
 
 render();
 updateAutoSyncUI();
