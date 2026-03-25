@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v21</title>
+<title>Meilensteinplan · AC 2026 · v23</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1220,9 +1220,9 @@ async function fetchTeamMembers(tid, token, diagLog){
 
   const routes=[
     {url:`${GRAPH_BASE}/teams/${tid}/members`,          label:"teams/members"},
-    {url:`${GRAPH_BASE}/groups/${tid}/members/microsoft.graph.user`, label:"groups/members/user"},
-    {url:`${GRAPH_BASE}/groups/${tid}/members`,         label:"groups/members"},
-    {url:`${GRAPH_BASE}/groups/${tid}/transitiveMembers/microsoft.graph.user`, label:"transitive/user"},
+    // Ohne /microsoft.graph.user Suffix → gibt auch Gäste (B2B) zurück
+    {url:`${GRAPH_BASE}/groups/${tid}/members`,         label:"groups/members (inkl. Gäste)"},
+    {url:`${GRAPH_BASE}/groups/${tid}/transitiveMembers`, label:"transitive/all"},
   ];
 
   for(const {url,label} of routes){
@@ -1231,16 +1231,25 @@ async function fetchTeamMembers(tid, token, diagLog){
       const status=res.status;
       if(res.ok){
         const d=await res.json();
-        const all=(d.value||[]).filter(m=>m.displayName);
-        const users=all.filter(m=>(m["@odata.type"]||"").includes("user"));
-        const result=(users.length?users:all).map(m=>({
-          name:m.displayName,
-          email:(m.mail||m.userPrincipalName||"").toLowerCase()
-        }));
-        log(`  ✓ [${label}] → ${result.length} Mitglieder (${all.length} total)`,"var(--accent)");
-        return result;
+        // ALLE Einträge mit displayName nehmen – nicht nur microsoft.graph.user
+        // Gäste (B2B) haben anderen @odata.type aber sind trotzdem Personen
+        const all=(d.value||[]).filter(m=>m.displayName&&m.displayName.trim());
+        // Deduplizieren nach email/UPN
+        const seen=new Set();
+        const result=[];
+        for(const m of all){
+          const email=(m.mail||m.userPrincipalName||"").toLowerCase();
+          const key=email||m.displayName.toLowerCase();
+          if(!seen.has(key)){
+            seen.add(key);
+            result.push({name:m.displayName.trim(),email});
+          }
+        }
+        log(`  ✓ [${label}] → ${result.length} Personen (Types: ${[...new Set((d.value||[]).map(m=>(m["@odata.type"]||"?").split(".").pop()))].join(", ")})`,"var(--accent)");
+        if(result.length>0) return result;
+        // 0 Ergebnisse → nächste Route versuchen
+        log(`  ℹ [${label}] → leer, versuche nächste Route…`,"var(--dim)");
       } else {
-        // Fehlermeldung aus Response lesen
         let errBody="";
         try{const j=await res.json();errBody=(j.error?.message||j.error?.code||"");}catch{}
         log(`  ✗ [${label}] → ${status}: ${errBody.slice(0,80)}`,"var(--overdue)");
@@ -1709,7 +1718,9 @@ function renderOneTaskRow(t,totalW,showGrpBadge){
 
   // Subtask rows (only in interactive mode, unchanged)
   if(isExpanded){
-    t.subtasks.forEach((s,si)=>{
+    // Unteraufgaben nach Startdatum aufsteigend sortieren (Index für Modal merken)
+    const sortedSubs=[...t.subtasks.map((s,origIdx)=>({s,origIdx}))].sort((a,b)=>pd(a.s.start)-pd(b.s.start));
+    sortedSubs.forEach(({s,origIdx:si})=>{
       const ssc=s.status==="Erledigt"?"er":s.status==="In Arbeit"?"ia":"of";
       const sdone=s.status==="Erledigt";
       const sx=cx(s.start),sw=bw(s.start,s.end),sisMS=s.start===s.end;
@@ -2284,7 +2295,12 @@ function saveTask(){
   const dep=depRaw&&depRaw!=="0"?depRaw:"";
   if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;if(!modalSubtasks.length)t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();if(!modalSubtasks.length)t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];t.dep=dep;}}
   else tasks.push({id:nextId++,task,group:document.getElementById("fGroup").value,status:document.getElementById("fStatus").value,start,end,assigned:document.getElementById("fAsgn").value.trim(),notes:document.getElementById("fNotes").value.trim(),progress,persons:[...modalPersons],subtasks:[...modalSubtasks],dep});
-  // Sofort in richtige Position sortieren
+  // Unteraufgaben innerhalb der Aufgabe nach Startdatum sortieren
+  tasks.forEach(t=>{
+    if(t.subtasks&&t.subtasks.length>1)
+      t.subtasks.sort((a,b)=>pd(a.start)-pd(b.start));
+  });
+  // Aufgaben in richtige Position sortieren
   reorderTasksByGroups();
   sortTasksInGroups();
   save();closeModal("taskModal");render();
@@ -2859,6 +2875,8 @@ function saveSubtask(){
     else{const existing=t.subtasks[parseInt(idx)];t.subtasks[parseInt(idx)]=sub;}
     // Recompute parent dates
     const dates=getTaskDates(t);t.start=dates.start;t.end=dates.end;
+    // Unteraufgaben nach Startdatum sortieren
+    t.subtasks.sort((a,b)=>pd(a.start)-pd(b.start));
     save();render();if(selId===parseInt(parentId))renderDetail(parseInt(parentId));closeModal("subModal");
   }
 }
@@ -3428,12 +3446,18 @@ async function silentSyncToPlanner(){
           const td=await graphReq("GET",`/planner/tasks/${t.plannerTaskId}/details`);
           const existing=td.checklist||{};
           const patch={};
-          t.subtasks.forEach(s=>{
-            if(s.plannerChecklistId&&existing[s.plannerChecklistId]){
-              const isChecked=s.status==="Erledigt";
-              if(existing[s.plannerChecklistId].isChecked!==isChecked){
-                patch[s.plannerChecklistId]={"@odata.type":"#microsoft.graph.plannerChecklistItem",isChecked,title:s.task.slice(0,100)};
+          t.subtasks.forEach((s,si)=>{
+            const stableId=s.plannerChecklistId||`s${t.id}_${si}`;
+            if(!s.plannerChecklistId) s.plannerChecklistId=stableId;
+            const isChecked=s.status==="Erledigt";
+            if(existing[stableId]){
+              // Bereits vorhanden: Status aktualisieren wenn geändert
+              if(existing[stableId].isChecked!==isChecked){
+                patch[stableId]={"@odata.type":"#microsoft.graph.plannerChecklistItem",isChecked,title:s.task.slice(0,100)};
               }
+            } else {
+              // Neu anlegen
+              patch[stableId]={"@odata.type":"#microsoft.graph.plannerChecklistItem",title:s.task.slice(0,100),isChecked};
             }
           });
           if(Object.keys(patch).length>0){
@@ -3916,14 +3940,14 @@ async function doExportToPlanner(){
               }
             } else {
               // Neu anlegen
-              const newId=`sub_${t.id}_${si}_${Date.now()}`;
-              checklistPatch[newId]={
+              // Stabile ID: basierend auf Task-ID + Subtask-Position (kein Timestamp)
+              const stableId=`s${t.id}_${si}`;
+              checklistPatch[stableId]={
                 "@odata.type":"#microsoft.graph.plannerChecklistItem",
                 title:s.task.slice(0,100),
                 isChecked:s.status==="Erledigt"
               };
-              // ID für künftige Updates merken
-              s.plannerChecklistId=newId;
+              s.plannerChecklistId=stableId;
             }
           });
           if(Object.keys(checklistPatch).length>0){
@@ -4048,19 +4072,36 @@ async function previewImportFromPlanner(){
   const importBtn=document.getElementById("plImportBtn");
   previewBtn.style.display="none";progressWrap.style.display="";importBtn.style.display="none";_plannerImportData=null;
   try{
-    const res=await graphReq("GET",`/planner/plans/${planId}/tasks`);
-    const plannerTasks=res.value||[];
-    const allItems=[];
-    tasks.forEach(t=>{
-      allItems.push({item:t,label:t.task});
-      (t.subtasks||[]).forEach(s=>allItems.push({item:s,label:`${t.task} › ${s.task}`}));
-    });
+    const ptRes=await graphReq("GET",`/planner/plans/${planId}/tasks`);
+    const plannerTasks=ptRes.value||[];
     const changes=[];
-    plannerTasks.forEach(pt=>{
+
+    for(const pt of plannerTasks){
       const ns=pctToStatus(pt.percentComplete);
-      const found=allItems.find(a=>a.item.plannerTaskId===pt.id);
-      if(found&&(found.item.status||"Offen")!==ns) changes.push({label:found.label,oldStatus:found.item.status||"Offen",newStatus:ns,localItem:found.item});
-    });
+      // Hauptaufgabe prüfen
+      const t=tasks.find(tt=>tt.plannerTaskId===pt.id);
+      if(t&&(t.status||"Offen")!==ns){
+        changes.push({label:t.task,oldStatus:t.status||"Offen",newStatus:ns,localItem:t,type:"task"});
+      }
+      // Unteraufgaben: Checklist-Status lesen
+      if(t&&t.subtasks&&t.subtasks.length>0){
+        try{
+          const td=await graphReq("GET",`/planner/tasks/${pt.id}/details`);
+          const checklist=td.checklist||{};
+          t.subtasks.forEach((s,si)=>{
+            const cid=s.plannerChecklistId||`s${t.id}_${si}`;
+            const cl=checklist[cid];
+            if(cl){
+              const subNewStatus=cl.isChecked?"Erledigt":"Offen";
+              if((s.status||"Offen")!==subNewStatus){
+                changes.push({label:`${t.task} › ${s.task}`,oldStatus:s.status||"Offen",newStatus:subNewStatus,localItem:s,type:"subtask"});
+              }
+            }
+          });
+        }catch(e){console.warn("Checklist import:",e);}
+      }
+    }
+
     _plannerImportData={changes};
     progressWrap.style.display="none";previewBtn.style.display="";
     if(!changes.length){
@@ -4069,7 +4110,8 @@ async function previewImportFromPlanner(){
       let html=`<strong style="color:var(--text)">${changes.length} Änderung${changes.length!==1?"en":""} gefunden:</strong><br><br>`;
       changes.forEach(c=>{
         const sc=c.newStatus==="Erledigt"?"var(--accent)":c.newStatus==="In Arbeit"?"var(--today)":"var(--muted)";
-        html+=`<div style="margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--border)"><span style="color:var(--text)">${esc(c.label)}</span><br><span style="opacity:.6;font-size:10px">${esc(c.oldStatus)}</span> → <span style="color:${sc};font-weight:600;font-size:10px">${esc(c.newStatus)}</span></div>`;
+        const isSubIcon=c.type==="subtask"?`<span style="color:var(--dim);font-size:9px"> ↳ Unteraufgabe</span>`:"";
+        html+=`<div style="margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--border)"><span style="color:var(--text)">${esc(c.label)}</span>${isSubIcon}<br><span style="opacity:.6;font-size:10px">${esc(c.oldStatus)}</span> → <span style="color:${sc};font-weight:600;font-size:10px">${esc(c.newStatus)}</span></div>`;
       });
       previewDiv.innerHTML=html;importBtn.style.display="";
     }
