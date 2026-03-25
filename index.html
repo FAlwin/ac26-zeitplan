@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v15</title>
+<title>Meilensteinplan · AC 2026 · v16</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -504,8 +504,7 @@ body.classic .sub-toggle{display:none!important}
     <div class="sep"></div>
     <button class="btn btn-g edit-only" onclick="openManageModal()">⊞ Gruppen verwalten</button>
     <div class="sep"></div>
-    <button class="btn btn-g collapse-all-btn" onclick="collapseAllSubs()" title="Alle Unteraufgaben einklappen">▶ Unteraufgaben ein</button>
-    <button class="btn btn-g collapse-all-btn" onclick="expandAllSubs()" title="Alle Unteraufgaben ausklappen">▼ Unteraufgaben aus</button>
+    <!-- Unteraufgaben-Buttons pro Gruppe im Gantt (nicht global) -->
     <button class="btn btn-g persons-only edit-only" onclick="openPersonsModal()">👤 Personen</button>
     <div class="sep"></div>
     <div class="vg">
@@ -667,7 +666,11 @@ body.classic .sub-toggle{display:none!important}
     </div>
     <!-- Personen Tab -->
     <div id="tabPersons">
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:'IBM Plex Mono',monospace">Personen erscheinen als Verantwortliche bei Aufgaben und im Filter.</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <p style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;flex:1;margin:0">Personen erscheinen als Verantwortliche bei Aufgaben und im Filter.</p>
+        <button class="btn btn-g" onclick="syncAllTeamMembersBtn()" id="syncTeamsBtn" style="font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0">↺ Teams sync</button>
+      </div>
+      <div id="syncTeamsBtnStatus" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;min-height:14px"></div>
       <div id="personsListWrap"></div>
       <div style="border-top:1px solid var(--border2);margin-top:12px;padding-top:12px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Neue Person</div>
@@ -1151,7 +1154,7 @@ function checkUserPermission(){
   currentUserIsAdmin=allOwners.includes(currentUserEmail)||allOwners.length===0;
 }
 
-function canEdit(){return currentUserIsAdmin||!msalAccount;}
+// canEdit: definiert weiter unten (Zeile ~3657) – alle Nutzer mit Login dürfen bearbeiten
 
 // ── SYNC TEAM MEMBERS FROM GRAPH ─────────────────────────────────────────────
 async function syncTeamMembers(teamLinks){
@@ -1164,14 +1167,17 @@ async function syncTeamMembers(teamLinks){
         fetch(`${GRAPH_BASE}/teams/${tid}/members`,{headers:{Authorization:`Bearer ${token}`}}),
         fetch(`${GRAPH_BASE}/groups/${tid}/owners`,{headers:{Authorization:`Bearer ${token}`}})
       ]);
-      if(mRes.ok){const d=await mRes.json();(d.value||[]).forEach(m=>{if(m.displayName&&!allMembers.find(x=>x.email===m.email))allMembers.push({name:m.displayName,email:(m.email||"").toLowerCase()});});}
+      if(mRes.ok){const d=await mRes.json();(d.value||[]).forEach(m=>{const email=(m.mail||m.userPrincipalName||"").toLowerCase();if(m.displayName&&!allMembers.find(x=>x.email===email))allMembers.push({name:m.displayName,email});});}
       if(oRes.ok){const d=await oRes.json();(d.value||[]).forEach(o=>{if(o.userPrincipalName)allOwners.push(o.userPrincipalName.toLowerCase());});}
     }catch(e){console.warn("Team sync error:",e);}
   }
-  // Merge into PERSONS (add missing, assign random color)
+  // Merge into PERSONS (add missing, assign random color, match by email too)
   allMembers.forEach(m=>{
-    if(!PERSONS.find(p=>p.name===m.name)){
+    const existing=PERSONS.find(p=>p.name===m.name||(p.email&&p.email===m.email));
+    if(!existing){
       PERSONS.push({name:m.name,color:randomPersonColor(),email:m.email});
+    } else if(!existing.email&&m.email){
+      existing.email=m.email; // Backfill email
     }
   });
   // Store ownerEmails on groups with these teamLinks
@@ -1188,9 +1194,31 @@ async function syncAllTeamMembers(){
   const allLinks=[...new Set(groups.flatMap(g=>g.teamLinks||[]))];
   if(allLinks.length)await syncTeamMembers(allLinks);
 }
+
+async function syncAllTeamMembersBtn(){
+  const btn=document.getElementById("syncTeamsBtn");
+  const status=document.getElementById("syncTeamsBtnStatus");
+  if(btn){btn.disabled=true;btn.textContent="⏳ Sync…";}
+  if(status)status.textContent="Lade Teams-Mitglieder…";
+  try{
+    // Alle beigetretenen Teams laden (nicht nur über teamLinks)
+    const token=await getToken();if(!token)throw new Error("Kein Token");
+    const res=await fetch(`${GRAPH_BASE}/me/joinedTeams`,{headers:{Authorization:`Bearer ${token}`}});
+    const data=await res.json();
+    const allTeamIds=(data.value||[]).map(t=>t.id);
+    if(!allTeamIds.length){if(status)status.textContent="Keine Teams gefunden.";return;}
+    await syncTeamMembers(allTeamIds);
+    if(status)status.textContent=`✓ ${PERSONS.length} Person${PERSONS.length!==1?"en":""} geladen (${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})})`;
+    renderPersonsList();updateFilterOpts();
+  }catch(e){
+    if(status)status.textContent=`✗ Fehler: ${e.message}`;
+    console.error("Teams sync:",e);
+  }
+  if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
+}
 function buildSaveData(){return{tasks,groups,nid:nextId,coll,collSub,title:ptitle,persons:PERSONS,teams:TEAMS,plannerSettings};}
 function applyData(d){
-  if(d.tasks)tasks=d.tasks;if(d.groups)groups=d.groups;if(d.nid)nextId=d.nid;
+  if(d.tasks)tasks=migrateDeps(d.tasks);if(d.groups)groups=d.groups;if(d.nid)nextId=d.nid;
   if(d.coll)coll=d.coll;if(d.collSub)collSub=d.collSub;if(d.title)ptitle=d.title;
   if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;
   if(d.plannerSettings){
@@ -1237,7 +1265,23 @@ function updateAuthUI(){
   }
 }
 
-function load(){try{const s=localStorage.getItem("ac26_v3");if(s){const d=JSON.parse(s);tasks=d.tasks||DEF_TASKS;groups=d.groups||DEF_GROUPS;nextId=d.nid||100;coll=d.coll||{};collSub=d.collSub||{};ptitle=d.title||ptitle;if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;if(d.plannerSettings)plannerSettings={...plannerSettings,...d.plannerSettings};}else{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}catch{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}
+function migrateDeps(taskList){
+  // Normalisiere dep-Werte: Integer 0 → "", Integer N → "task:N"
+  taskList.forEach(t=>{
+    if(t.dep===0||t.dep==="0"||t.dep===null||t.dep===undefined)t.dep="";
+    else if(typeof t.dep==="number"&&t.dep>0)t.dep=`task:${t.dep}`;
+    else if(typeof t.dep==="string"&&/^\d+$/.test(t.dep)&&t.dep!=="0")t.dep=`task:${t.dep}`;
+    // Kommentare entfernen
+    delete t.comments;
+    (t.subtasks||[]).forEach(s=>{
+      if(s.dep===0||s.dep==="0"||s.dep===null||s.dep===undefined)s.dep="";
+      else if(typeof s.dep==="number"&&s.dep>0)s.dep=`task:${s.dep}`;
+      delete s.comments;
+    });
+  });
+  return taskList;
+}
+function load(){try{const s=localStorage.getItem("ac26_v3");if(s){const d=JSON.parse(s);tasks=migrateDeps(d.tasks||DEF_TASKS);groups=d.groups||DEF_GROUPS;nextId=d.nid||100;coll=d.coll||{};collSub=d.collSub||{};ptitle=d.title||ptitle;if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;if(d.plannerSettings)plannerSettings={...plannerSettings,...d.plannerSettings};}else{tasks=migrateDeps([...DEF_TASKS]);groups=[...DEF_GROUPS];}}catch{tasks=migrateDeps([...DEF_TASKS]);groups=[...DEF_GROUPS];}}
 function save(){
   saveLocal();
   if(msalAccount){
@@ -1467,8 +1511,8 @@ function renderOneTaskRow(t,totalW,showGrpBadge){
   const pct=hasSub?Math.round((t.subtasks.filter(s=>s.status==="Erledigt").length/t.subtasks.length)*100):0;
   const progBar=(!isMS&&pct>0&&hasSub)?`<div class="bar-progress" style="width:${pct}%"></div>${pct>=20?`<span class="bar-pct">${pct}%</span>`:""}`:"";
   let barH=isMS
-    ?`<div class="ms" style="left:${x-6}px;top:11px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" data-bardrag="${t.id}" title="${esc(t.task)}"></div>`
-    :`<div class="bar" style="left:${x}px;width:${w}px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" title="${esc(t.task)}">${progBar}${w>60?`<span class="blbl">${esc(t.task)}</span>`:""}</div>`;
+    ?`<div class="ms" style="left:${x-6}px;top:11px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" ondblclick="event.stopPropagation();openTaskModal(${t.id})" data-bardrag="${t.id}" title="${esc(t.task)}"></div>`
+    :`<div class="bar" style="left:${x}px;width:${w}px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" ondblclick="event.stopPropagation();openTaskModal(${t.id})" title="${esc(t.task)}">${progBar}${w>60?`<span class="blbl">${esc(t.task)}</span>`:""}</div>`;
 
   let html=`<div class="gantt-row trow${isSel?" sel":""}${overdue?" overdue":""}${hasSub?" has-sub":""}" data-tid="${t.id}">`;
   html+=`<div class="rl"${hasSub?` onclick="togSub(${t.id})"`:`onclick="selTask(${t.id})"`}>`;
@@ -1498,9 +1542,9 @@ function renderOneTaskRow(t,totalW,showGrpBadge){
       const sdone=s.status==="Erledigt";
       const sx=cx(s.start),sw=bw(s.start,s.end),sisMS=s.start===s.end;
       const sbar=sisMS
-        ?`<div class="ms" style="left:${sx-6}px;top:11px;background:${color};opacity:.8" onclick="event.stopPropagation();openSubModal(${t.id},${si})"></div>`
-        :`<div class="bar" style="left:${sx}px;width:${sw}px;background:${color};opacity:.8" onclick="event.stopPropagation();openSubModal(${t.id},${si})">${sw>60?`<span class="blbl">${esc(s.task)}</span>`:""}</div>`;
-      html+=`<div class="gantt-row subtrow${sdone?" sub-done":""}">`;
+        ?`<div class="ms" style="left:${sx-6}px;top:11px;background:${color};opacity:.8" data-subtid="${t.id}" data-subidx="${si}" onclick="event.stopPropagation();openSubModal(${t.id},${si})" ondblclick="event.stopPropagation();openSubModal(${t.id},${si})" title="${esc(s.task)}"></div>`
+        :`<div class="bar" style="left:${sx}px;width:${sw}px;background:${color};opacity:.8" data-subtid="${t.id}" data-subidx="${si}" onclick="event.stopPropagation();openSubModal(${t.id},${si})" ondblclick="event.stopPropagation();openSubModal(${t.id},${si})" title="${esc(s.task)}">${sw>60?`<span class="blbl">${esc(s.task)}</span>`:""}</div>`;
+      html+=`<div class="gantt-row subtrow${sdone?" sub-done":""}" data-parentid="${t.id}" data-subidx="${si}">`;
       html+=`<div class="rl" onclick="openSubModal(${t.id},${si})">`;
       html+=`<div class="sd ${ssc}" onclick="event.stopPropagation();cycSubSt(${t.id},${si})" title="Status wechseln"></div>`;
       html+=`<div class="tname${sdone?" done":""}">${esc(s.task)}</div>`;
@@ -1551,8 +1595,11 @@ function render(){
       html+=`<div style="width:7px;height:7px;border-radius:1px;background:${color};flex-shrink:0"></div>`;
       html+=`${esc(g.name)}`;
       html+=`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;opacity:.6;margin-left:4px">${grpTasks.length}</span>`;
-      html+=`<button class="gedit" onclick="event.stopPropagation();collapseGrpSubs('${gk}')" title="Unteraufgaben einklappen">⊟</button>`;
-      html+=`<button class="gedit" onclick="event.stopPropagation();expandGrpSubs('${gk}')" title="Unteraufgaben ausklappen">⊞</button>`;
+      const grpHasSubs=interactiveMode&&grpTasks.some(t=>t.subtasks&&t.subtasks.length>0);
+      if(grpHasSubs){
+        html+=`<button class="gedit dp-planning" onclick="event.stopPropagation();collapseGrpSubs('${gk}')" title="Unteraufgaben einklappen">⊟</button>`;
+        html+=`<button class="gedit dp-planning" onclick="event.stopPropagation();expandGrpSubs('${gk}')" title="Unteraufgaben ausklappen">⊞</button>`;
+      }
       html+=`<button class="gedit" onclick="event.stopPropagation();openGroupModal('${gk}')" title="Gruppe bearbeiten">✎</button>`;
       html+=`</div>`;
       html+=`<div class="grp-bars" style="width:${totalW}px;background:${color}16"></div>`;
@@ -1823,7 +1870,6 @@ function renderDetail(id){
   const pct=hasSubs?Math.round(t.subtasks.filter(s=>s.status==="Erledigt").length/t.subtasks.length*100):0;
   const dpProgBar=(hasSubs&&!isMS&&pct>0)?`<div style="height:5px;background:var(--border2);border-radius:3px;margin-bottom:12px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div></div>`:"";
   const persons=(t.persons||[]);
-  const comments=(t.comments||[]);
 
   const personsHtml=PERSONS.map(p=>{
     const on=persons.includes(p.name);
@@ -1835,13 +1881,12 @@ function renderDetail(id){
     const allOn=team.members.length>0&&team.members.every(m=>persons.includes(m));
     return`<button onclick="assignTeamToTask(${id},'${esc(team.name)}')" style="padding:2px 8px;border-radius:8px;font-size:10px;font-family:'IBM Plex Mono',monospace;background:${allOn?'var(--accent)':'var(--surface3)'};border:1.5px solid ${allOn?'var(--accent)':'var(--border2)'};color:${allOn?'#fff':'var(--muted)'};cursor:pointer;font-weight:${allOn?'600':'400'}">${esc(team.name)}</button>`;
   }).join(""):"";
-  const commentsHtml="";
 
   document.getElementById("detailInner").innerHTML=`
     <div style="position:relative;padding-top:2px">
       <button style="position:absolute;top:0;right:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px" onclick="closeDetail()">✕</button>
       <div class="dptag" style="background:${color}22;color:${color}">${esc(g.name)}</div>
-      <div class="dptit">${esc(t.task)}${overdue?` <span class="dp-planning" style="font-size:11px;color:var(--overdue);font-weight:400">⚠ überfällig</span>`:""}${(()=>{const pred=t.dep&&tasks.find(p=>p.id===t.dep);return pred&&pd(t.start)<=pd(pred.end)&&t.status!=="Erledigt"?` <span style="font-size:11px;color:var(--overdue);font-weight:400">⚠ Konflikt mit „${esc(pred.task)}"</span>`:"";})()}</div>
+      <div class="dptit">${esc(t.task)}${overdue?` <span class="dp-planning" style="font-size:11px;color:var(--overdue);font-weight:400">⚠ überfällig</span>`:""}${(()=>{const depId=t.dep&&t.dep.startsWith("task:")?parseInt(t.dep.split(":")[1]):null;const pred=depId&&tasks.find(p=>p.id===depId);return pred&&pd(t.start)<=pd(pred.end)&&t.status!=="Erledigt"?` <span style="font-size:11px;color:var(--overdue);font-weight:400">⚠ Konflikt mit „${esc(pred.task)}"</span>`:"";})()}</div>
       ${dpProgBar||""}
       ${(()=>{
         const es=hasSubs?getEffectiveStatus(t):t.status;
@@ -2022,11 +2067,12 @@ function openTaskModal(id){
       const grpTasks=tasks.filter(tt=>tt.group===g.key&&tt.id!==curId);
       if(!grpTasks.length) return;
       depHtml+=`<optgroup label="${esc(g.name)}">`;
-      grpTasks.forEach(tt=>{ depHtml+=`<option value="${tt.id}">${esc(tt.task)}</option>`; });
+      grpTasks.forEach(tt=>{ depHtml+=`<option value="task:${tt.id}">${esc(tt.task)}</option>`; });
       depHtml+=`</optgroup>`;
     });
     depSel.innerHTML=depHtml;
     const curT=tasks.find(tt=>tt.id===curId);
+    // dep kann "task:123" oder "" sein - passt zu option values
     depSel.value=curT?.dep||"";
   }
 }
@@ -2046,9 +2092,10 @@ function saveTask(){
   if(pd(end)<pd(start)){alert("Enddatum muss nach Startdatum liegen.");return;}
   const idS=document.getElementById("eid").value;
   const progress=parseInt(document.getElementById("fProgress").value)||0;
-  const dep=parseInt(document.getElementById("fDep")?.value)||0;
-  if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;if(!modalSubtasks.length)t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();if(!modalSubtasks.length)t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];t.dep=dep||0;}}
-  else tasks.push({id:nextId++,task,group:document.getElementById("fGroup").value,status:document.getElementById("fStatus").value,start,end,assigned:document.getElementById("fAsgn").value.trim(),notes:document.getElementById("fNotes").value.trim(),progress,persons:[...modalPersons],comments:[],subtasks:[...modalSubtasks],dep:dep||0});
+  const depRaw=document.getElementById("fDep")?.value||"";
+  const dep=depRaw&&depRaw!=="0"?depRaw:"";
+  if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;if(!modalSubtasks.length)t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();if(!modalSubtasks.length)t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];t.dep=dep;}}
+  else tasks.push({id:nextId++,task,group:document.getElementById("fGroup").value,status:document.getElementById("fStatus").value,start,end,assigned:document.getElementById("fAsgn").value.trim(),notes:document.getElementById("fNotes").value.trim(),progress,persons:[...modalPersons],subtasks:[...modalSubtasks],dep});
   save();closeModal("taskModal");render();
 }
 
@@ -2597,7 +2644,7 @@ function saveSubtask(){
     const t=tasks.find(t=>t.id===parseInt(parentId));if(!t)return;
     if(!t.subtasks)t.subtasks=[];
     if(idx==="")t.subtasks.push(sub);
-    else{const existing=t.subtasks[parseInt(idx)];sub.comments=existing.comments||[];t.subtasks[parseInt(idx)]=sub;}
+    else{const existing=t.subtasks[parseInt(idx)];t.subtasks[parseInt(idx)]=sub;}
     // Recompute parent dates
     const dates=getTaskDates(t);t.start=dates.start;t.end=dates.end;
     save();render();if(selId===parseInt(parentId))renderDetail(parseInt(parentId));closeModal("subModal");
@@ -2821,7 +2868,7 @@ document.addEventListener("mousedown",e=>{
   const tbars=e.target.closest('.tbars');
   if(!tbars||e.target.closest('.bar')||e.target.closest('[data-bardrag]')||e.button!==0)return;
   if(window.matchMedia("(max-width:600px)").matches)return;
-  const trow=tbars.closest('.trow');
+  const trow=tbars.closest('.trow')||tbars.closest('.subtrow');
   if(!trow)return;
   // Close detail panel when starting a draw (without render)
   selId=null;
@@ -2891,6 +2938,28 @@ document.addEventListener("mouseup",async e=>{
     drawState=null;
     if(x2-x1<6)return;
     const d1=xToDate(x1),d2=xToDate(x2);
+    // Prüfe ob in Subtrow gezeichnet wurde → neue Unteraufgabe
+    if(trow.classList.contains("subtrow")){
+      const parentId=parseInt(trow.dataset.parentid);
+      if(parentId){
+        document.getElementById("subMdTit").textContent="Neue Unteraufgabe";
+        document.getElementById("subParentId").value=parentId;
+        document.getElementById("subIdx").value="";
+        document.getElementById("subTask").value="";
+        document.getElementById("subStart").value=fmt(d1);
+        document.getElementById("subEnd").value=fmt(d2);
+        document.getElementById("subStatus").value="Offen";
+        document.getElementById("subAsgn").value="";
+        document.getElementById("subNotes").value="";
+        document.getElementById("subDelBtn").style.display="none";
+        const pt=tasks.find(tt=>tt.id===parentId);
+        modalSubPersons=[];renderSubPersonChips([]);
+        populateSubDep(parentId,-1,"");
+        document.getElementById("subModal").classList.add("open");
+        document.getElementById("subTask").focus();
+        return;
+      }
+    }
     const gkey=(()=>{
       let el=trow.previousElementSibling;
       while(el){if(el.dataset.gkey)return el.dataset.gkey;el=el.previousElementSibling;}
@@ -2911,10 +2980,11 @@ document.addEventListener("mouseup",async e=>{
     return;
   }
   if(barDrag){
-    const {id,startX,origStart,origEnd,ghost,bar,tip}=barDrag;
+    const {startX,origStart,origEnd,ghost,bar,tip}=barDrag;
     ghost.remove();tip.remove();
     bar.style.opacity="";
     const dx=e.clientX-startX;
+    const drag=barDrag;
     barDrag=null;
     if(Math.abs(dx)<8)return;
     const total=cols.reduce((a,c)=>a+c.w,0);
@@ -2928,21 +2998,49 @@ document.addEventListener("mouseup",async e=>{
     const msPerPx=(le-cols[0].date)/total;
     const shiftDays=Math.round(dx*msPerPx/864e5);
     if(shiftDays===0)return;
-    const t=tasks.find(tt=>tt.id===id);
-    if(!t)return;
     const newStart=fmt(ad(pd(origStart),shiftDays));
     const newEnd=fmt(ad(pd(origEnd),shiftDays));
     const dir=shiftDays>0?"vorwärts":"rückwärts";
     const absDays=Math.abs(shiftDays);
+
+    if(drag.isSubtask){
+      // Unteraufgabe verschieben
+      const t=tasks.find(tt=>tt.id===drag.parentId);
+      if(!t||!t.subtasks||!t.subtasks[drag.subIdx])return;
+      const s=t.subtasks[drag.subIdx];
+      const ok=await showConfirm(
+        "Unteraufgabe verschieben",
+        `„${s.task}" um ${absDays} Tag${absDays!==1?"e":""} ${dir} verschieben?\n\nNeu: ${fde(newStart)} – ${fde(newEnd)}`
+      );
+      if(!ok)return;
+      s.start=newStart;s.end=newEnd;
+      // Elterntask-Datums anpassen
+      const dates=getTaskDates(t);t.start=dates.start;t.end=dates.end;
+      save();render();
+      return;
+    }
+
+    // Normale Aufgabe verschieben
+    const t=tasks.find(tt=>tt.id===drag.id);
+    if(!t)return;
+    const successors=findSuccessors(t.id);
+    let confirmMsg=`„${t.task}" um ${absDays} Tag${absDays!==1?"e":""} ${dir} verschieben?\n\nNeu: ${fde(newStart)} – ${fde(newEnd)}`;
+    let extraHtml="";
+    if(successors.length){
+      extraHtml=`<div style="margin-top:8px;padding:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--today);margin-bottom:6px;font-weight:600">⚠ ${successors.length} abhängige Aufgabe${successors.length!==1?"n":""} werden ebenfalls verschoben:</div>
+        ${successors.map(s=>`<div style="padding:2px 0;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">▶ ${s.label}</div>`).join("")}
+      </div>`;
+    }
     const ok=await showConfirm(
       "Aufgabe verschieben",
-      `„${t.task}" um ${absDays} Tag${absDays!==1?"e":""} ${dir} verschieben?
-
-Neu: ${fde(newStart)} – ${fde(newEnd)}`
+      confirmMsg,
+      extraHtml,
+      successors.length?"Alle verschieben":"Verschieben"
     );
     if(!ok)return;
     t.start=newStart;t.end=newEnd;
-    await confirmDepCascade(t,shiftDays);
+    if(successors.length) applyDepCascadeRecursive(t.id,shiftDays,new Set([t.id]));
     cleanDeadDeps();
     save();render();
     return;
@@ -2956,13 +3054,38 @@ document.addEventListener("mousedown",e=>{
   const bar=e.target.closest('.bar')||e.target.closest('[data-bardrag]');
   if(!bar||e.button!==0)return;
   if(window.matchMedia("(max-width:600px)").matches)return;
+  e.stopPropagation();
+  const tbars=bar.closest('.tbars');
+
+  // Prüfe ob Subtask-Balken
+  const subtid=parseInt(bar.dataset.subtid||bar.closest('[data-subtid]')?.dataset.subtid);
+  const subidx=parseInt(bar.dataset.subidx??bar.closest('[data-subidx]')?.dataset.subidx);
+  if(subtid&&!isNaN(subidx)){
+    const t=tasks.find(tt=>tt.id===subtid);
+    if(!t||!t.subtasks||!t.subtasks[subidx])return;
+    const s=t.subtasks[subidx];
+    const isMS=s.start===s.end;
+    const ghost=document.createElement("div");
+    if(isMS){
+      ghost.style.cssText=`position:absolute;width:13px;height:13px;transform:rotate(45deg);border-radius:2px;left:${bar.offsetLeft}px;top:11px;background:${bar.style.background};opacity:.5;pointer-events:none;z-index:6;outline:2px dashed rgba(255,255,255,.6)`;
+    } else {
+      ghost.style.cssText=`position:absolute;left:${bar.offsetLeft}px;width:${bar.offsetWidth}px;height:16px;top:8px;background:${bar.style.background};opacity:.5;border-radius:3px;pointer-events:none;z-index:6;border:2px dashed rgba(255,255,255,.6)`;
+    }
+    tbars.appendChild(ghost);
+    const tip=document.createElement("div");tip.className="drag-tooltip";
+    tip.style.left=e.clientX+"px";tip.style.top=(e.clientY-10)+"px";tip.textContent="0 Tage";
+    document.body.appendChild(tip);
+    barDrag={isSubtask:true,parentId:subtid,subIdx:subidx,startX:e.clientX,origStart:s.start,origEnd:s.end,ghost,tbars,bar,origLeft:bar.offsetLeft,origW:bar.offsetWidth,tip,isMS};
+    bar.style.opacity="0.3";
+    return;
+  }
+
+  // Normal Task-Balken
   const trow=bar.closest('.trow');
   const tid=parseInt(trow?.dataset.tid||bar.dataset.bardrag);
   if(!tid)return;
   const t=tasks.find(tt=>tt.id===tid);
   if(!t)return;
-  e.stopPropagation();
-  const tbars=bar.closest('.tbars');
   const isMS=t.start===t.end;
   const ghost=document.createElement("div");
   if(isMS){
@@ -2971,13 +3094,10 @@ document.addEventListener("mousedown",e=>{
     ghost.style.cssText=`position:absolute;left:${bar.offsetLeft}px;width:${bar.offsetWidth}px;height:20px;top:8px;background:${bar.style.background};opacity:.5;border-radius:3px;pointer-events:none;z-index:6;border:2px dashed rgba(255,255,255,.6)`;
   }
   tbars.appendChild(ghost);
-  const tip=document.createElement("div");
-  tip.className="drag-tooltip";
-  tip.style.left=e.clientX+"px";
-  tip.style.top=(e.clientY-10)+"px";
-  tip.textContent="0 Tage";
+  const tip=document.createElement("div");tip.className="drag-tooltip";
+  tip.style.left=e.clientX+"px";tip.style.top=(e.clientY-10)+"px";tip.textContent="0 Tage";
   document.body.appendChild(tip);
-  barDrag={id:tid,startX:e.clientX,origStart:t.start,origEnd:t.end,ghost,tbars,bar,origLeft:bar.offsetLeft,origW:bar.offsetWidth,tip,isMS};
+  barDrag={isSubtask:false,id:tid,startX:e.clientX,origStart:t.start,origEnd:t.end,ghost,tbars,bar,origLeft:bar.offsetLeft,origW:bar.offsetWidth,tip,isMS};
   bar.style.opacity="0.3";
 });
 
@@ -3028,6 +3148,10 @@ function loadPlannerSettings(){
     if(s){const d=JSON.parse(s);plannerSettings={...plannerSettings,...d};}
   }catch{}
 }
+
+// ── STATUS / PCT MAPPING (global) ───────────────────────────────────────────
+const STATUS_TO_PCT={"Offen":0,"In Arbeit":50,"Erledigt":100};
+function pctToStatus(n){if(n>=100)return"Erledigt";if(n>=1)return"In Arbeit";return"Offen";}
 
 // ── AUTO SYNC ─────────────────────────────────────────────────────────────────
 let _autoSyncTimer=null;
@@ -3273,9 +3397,6 @@ function selectGroup(id,name){
 }
 
 // ── STATUS MAPPING ────────────────────────────────────────────────────────────
-const STATUS_TO_PCT={"Offen":0,"In Arbeit":50,"Erledigt":100};
-function pctToStatus(n){if(n>=100)return"Erledigt";if(n>=1)return"In Arbeit";return"Offen";}
-
 // ── LOG ───────────────────────────────────────────────────────────────────────
 function plLog(msg,color){
   const log=document.getElementById("plExportLog");if(!log)return;
@@ -3717,8 +3838,11 @@ let _spPollInterval=null;
 let _spLastModified="";
 
 async function startSpPoll(){
-  if(_spPollInterval)clearInterval(_spPollInterval);
-  _spPollInterval=setInterval(checkSpUpdate,30000);
+  if(_spPollInterval){clearInterval(_spPollInterval);_spPollInterval=null;}
+  // Guard: kein zweiter Poll wenn Tab nicht sichtbar
+  _spPollInterval=setInterval(()=>{
+    if(document.visibilityState!=="hidden")checkSpUpdate();
+  },30000);
 }
 
 async function checkSpUpdate(){
@@ -3795,13 +3919,37 @@ function resolveDepTarget(depVal){
 function findSuccessors(taskId){
   // Find all tasks/subtasks that have this task as predecessor
   const result=[];
+  const keyStr=`task:${taskId}`;
   tasks.forEach(t=>{
-    if(t.dep===`task:${taskId}`)result.push({label:t.task,id:t.id,type:"task"});
+    if(t.dep===keyStr||t.dep===taskId||t.dep===String(taskId))result.push({label:t.task,id:t.id,type:"task"});
     (t.subtasks||[]).forEach((s,si)=>{
-      if(s.dep===`task:${taskId}`)result.push({label:`${t.task} › ${s.task}`,id:t.id,si,type:"sub"});
+      if(s.dep===keyStr||s.dep===`task:${taskId}`)result.push({label:`${t.task} › ${s.task}`,id:t.id,si,type:"sub"});
     });
   });
   return result;
+}
+
+// Recursive cascade: applies shiftDays to all transitive successors
+function applyDepCascadeRecursive(taskId,shiftDays,visited){
+  const successors=findSuccessors(taskId);
+  successors.forEach(s=>{
+    if(s.type==="task"){
+      if(visited.has(s.id))return;
+      visited.add(s.id);
+      const t=tasks.find(tt=>tt.id===s.id);
+      if(t){
+        t.start=fmt(ad(pd(t.start),shiftDays));
+        t.end=fmt(ad(pd(t.end),shiftDays));
+        applyDepCascadeRecursive(t.id,shiftDays,visited);
+      }
+    } else {
+      const t=tasks.find(tt=>tt.id===s.id);
+      if(t&&t.subtasks&&t.subtasks[s.si]){
+        t.subtasks[s.si].start=fmt(ad(pd(t.subtasks[s.si].start),shiftDays));
+        t.subtasks[s.si].end=fmt(ad(pd(t.subtasks[s.si].end),shiftDays));
+      }
+    }
+  });
 }
 
 async function confirmDepCascade(movedTask,shiftDays){
