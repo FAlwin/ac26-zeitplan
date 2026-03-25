@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v23</title>
+<title>Meilensteinplan · AC 2026 · v24</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -670,6 +670,7 @@ body.classic .sub-toggle{display:none!important}
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <p style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;flex:1;margin:0">Personen erscheinen als Verantwortliche bei Aufgaben und im Filter.</p>
         <button class="btn btn-g" onclick="syncAllTeamMembersBtn()" id="syncTeamsBtn" style="font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0">↺ Teams sync</button>
+        <button class="btn btn-g" onclick="openTeamsDiag()" title="Rohdiagnose: zeigt exakte API-Antwort für ein Team" style="font-size:11px;padding:4px 10px;white-space:nowrap;flex-shrink:0">🔍 Diag</button>
       </div>
       <div id="syncTeamsBtnStatus" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;min-height:14px"></div>
       <div id="personsListWrap"></div>
@@ -695,6 +696,25 @@ body.classic .sub-toggle{display:none!important}
     </div>
     <div class="fa" style="margin-top:12px">
       <button class="btn btn-g" onclick="closeModal('personsModal')">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEAMS DIAGNOSE MODAL -->
+<div class="mo" id="teamsDiagModal" onclick="cmo(event,'teamsDiagModal')">
+  <div class="md" style="width:560px;max-height:85vh">
+    <button class="mdx" onclick="closeModal('teamsDiagModal')">✕</button>
+    <div class="mdtit">Teams API Diagnose</div>
+    <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      Zeigt den rohen API-Response für dein erstes Team. Hilft zu verstehen warum Mitglieder nicht geladen werden.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <select class="fs" id="diagTeamSel" style="flex:1;min-width:0;font-size:11px"></select>
+      <button class="btn btn-p" onclick="runTeamsDiag()" style="flex-shrink:0">▶ Ausführen</button>
+    </div>
+    <div id="diagOutput" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text);line-height:1.8;max-height:50vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all">Klicke "Ausführen" um die Diagnose zu starten…</div>
+    <div class="fa" style="margin-top:12px">
+      <button class="btn btn-g" onclick="closeModal('teamsDiagModal')">Schließen</button>
     </div>
   </div>
 </div>
@@ -1192,6 +1212,85 @@ async function saveToSharePoint(){
 }
 async function manualSync(){if(msalAccount)await saveToSharePoint();}
 
+
+// ── TEAMS DIAGNOSE ────────────────────────────────────────────────────────────
+let _diagTeams=[];
+async function openTeamsDiag(){
+  const sel=document.getElementById("diagTeamSel");
+  const out=document.getElementById("diagOutput");
+  if(!sel||!out)return;
+  out.textContent="Lade Team-Liste…";
+  document.getElementById("teamsDiagModal").classList.add("open");
+  try{
+    const token=await getGraphToken();
+    if(!token){out.textContent="✗ Kein Token";return;}
+    const res=await fetch(`${GRAPH_BASE}/me/joinedTeams`,{headers:{Authorization:`Bearer ${token}`}});
+    const data=await res.json();
+    _diagTeams=data.value||[];
+    sel.innerHTML=_diagTeams.map((t,i)=>`<option value="${i}">${esc(t.displayName)}</option>`).join("");
+    out.textContent=`${_diagTeams.length} Teams geladen. Team auswählen und "Ausführen" klicken.`;
+  }catch(e){out.textContent="✗ "+e.message;}
+}
+
+async function runTeamsDiag(){
+  const sel=document.getElementById("diagTeamSel");
+  const out=document.getElementById("diagOutput");
+  const idx=parseInt(sel?.value||"0");
+  const team=_diagTeams[idx];
+  if(!team){out.textContent="Kein Team ausgewählt.";return;}
+  out.textContent=`Analysiere: ${team.displayName}\nID: ${team.id}\n\n`;
+
+  const token=await getGraphToken();
+  if(!token){out.textContent+="✗ Kein Token";return;}
+
+  // Token-Info
+  try{
+    const p=JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+    out.textContent+=`TOKEN INFO:\n`;
+    out.textContent+=`  aud: ${p.aud}\n`;
+    out.textContent+=`  tid (Token-Tenant): ${p.tid}\n`;
+    out.textContent+=`  upn: ${p.upn||p.preferred_username||"?"}\n`;
+    out.textContent+=`  scp: ${(p.scp||"").split(" ").join(", ")}\n\n`;
+  }catch{}
+
+  // Team-Info
+  try{
+    const tr=await fetch(`${GRAPH_BASE}/groups/${team.id}?$select=id,displayName,visibility,groupTypes,mail`,
+      {headers:{Authorization:`Bearer ${token}`}});
+    const td=await tr.json();
+    out.textContent+=`GRUPPE INFO (HTTP ${tr.status}):\n${JSON.stringify(td,null,2)}\n\n`;
+  }catch(e){out.textContent+=`GRUPPE INFO: ✗ ${e.message}\n\n`;}
+
+  // Members testen – alle Varianten
+  const routes=[
+    `/teams/${team.id}/members`,
+    `/groups/${team.id}/members`,
+    `/groups/${team.id}/members/microsoft.graph.user`,
+    `/groups/${team.id}/members?$select=id,displayName,mail,userPrincipalName,@odata.type`,
+    `/groups/${team.id}/transitiveMembers`,
+    `/groups/${team.id}/owners`,
+  ];
+  for(const path of routes){
+    try{
+      const r=await fetch(`${GRAPH_BASE}${path}`,{headers:{Authorization:`Bearer ${token}`}});
+      const body=await r.text();
+      let parsed;try{parsed=JSON.parse(body);}catch{parsed=body;}
+      const count=parsed?.value?.length??"-";
+      out.textContent+=`${r.status} ${path}\n`;
+      if(r.ok&&parsed?.value){
+        // Zeige ersten Eintrag komplett
+        if(parsed.value.length>0){
+          out.textContent+=`  → ${count} Einträge. Erster:\n  ${JSON.stringify(parsed.value[0],null,2).split("\n").join("\n  ")}\n\n`;
+        } else {
+          out.textContent+=`  → 0 Einträge (leer)\n\n`;
+        }
+      } else {
+        out.textContent+=`  → ${body.slice(0,300)}\n\n`;
+      }
+    }catch(e){out.textContent+=`✗ ${path}: ${e.message}\n\n`;}
+  }
+  out.scrollTop=out.scrollHeight;
+}
 // ── RANDOM COLORS ─────────────────────────────────────────────────────────────
 const PERSON_COLORS=["#1a7a55","#1a5fa8","#7c3aed","#b06000","#c0392b","#2c5f6e","#8b1a5a","#2d9e6a","#4a9eff","#b87fff","#f5a623","#ff6b6b","#f06292","#60c4f5","#4dd9a0","#0a4738"];
 function randomPersonColor(){return PERSON_COLORS[Math.floor(Math.random()*PERSON_COLORS.length)];}
