@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v18</title>
+<title>Meilensteinplan · AC 2026 · v19</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1799,7 +1799,7 @@ function renderDependencies(){
   const ns="http://www.w3.org/2000/svg";
   const svgWrap=document.createElement("div");
   svgWrap.className="dep-svg-wrap";
-  svgWrap.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible";
+  svgWrap.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible";
   const svg=document.createElementNS(ns,"svg");
   svg.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible";
 
@@ -1852,40 +1852,46 @@ function drawArrow(svg,ns,pred,succ,predRow,succRow,inner,labelW,isWarning){
   const predBarEnd = labelW + cx(pred.start) + (pred.start===pred.end ? 7 : bw(pred.start,pred.end));
   const succBarStart = labelW + cx(succ.start) - (succ.start===succ.end ? 7 : 0);
 
-  const y1 = predRect.top - innerRect.top + predRect.height/2;
-  const y2 = succRect.top - innerRect.top + succRect.height/2;
+  // Pfeile UNTER den Rows: vom unteren Rand jeder Row, mit 4px Abstand
+  const rowH = predRect.height;
+  const UNDER = 3; // px unter dem Row-Boden
+  const y1 = predRect.bottom - innerRect.top + UNDER;
+  const y2 = succRect.bottom - innerRect.top + UNDER;
+  // Routing-Höhe: in der Lücke zwischen den Rows (falls konsekutiv)
+  // Nutze den Raum zwischen pred.bottom und succ.top als Kanal
+  const gap = succRect.top - predRect.bottom;
+  const routeY = gap >= 6
+    ? (predRect.bottom - innerRect.top) + Math.min(gap * 0.5, 10)  // mittig in der Lücke
+    : y1 + 4; // falls Rows aneinander, knapp darunter
+
   const x1 = predBarEnd + 2;
   const x2 = succBarStart - 6;
 
   const col = isWarning ? "var(--overdue)" : "#4a9eff";
-  const op = isWarning ? 0.9 : 0.65;
+  const op = isWarning ? 0.85 : 0.55;
   const marker = isWarning ? "url(#dah-w)" : "url(#dah-n)";
-  const r = 5; // corner radius
-
-  // Build smooth orthogonal path with rounded corners
-  const stub = 14;
-  const xMid = Math.max(x1 + stub, x2 - stub);
-  const goingDown = y2 > y1;
-  const dy = goingDown ? r : -r;
+  const r = 4;
+  const stub = 10;
 
   let d;
-  if(Math.abs(y2-y1) < 4){
-    // Same row — straight line
-    d = `M${x1},${y1} H${x2}`;
+  if(Math.abs(y1-y2) < 3 && Math.abs(x2-x1) > stub*2){
+    // Gleiche Höhe, direkte Linie durch den Unter-Kanal
+    d = `M${x1},${routeY} H${x2}`;
   } else if(x2 > x1 + stub*2){
-    // Normal case: right → down/up → right
-    d = `M${x1},${y1} H${xMid-r} Q${xMid},${y1} ${xMid},${y1+dy} V${y2-dy} Q${xMid},${y2} ${xMid+r},${y2} H${x2}`;
+    // Normal: Abgang nach unten → horizontal → Ankunft von unten
+    const xMid = Math.max(x1 + stub, x2 - stub);
+    d = `M${x1},${y1} V${routeY+r} Q${x1},${routeY} ${x1+r},${routeY} H${xMid-r} Q${xMid},${routeY} ${xMid},${routeY-r} V${y2+r} Q${xMid},${y2} ${xMid+r},${y2} H${x2}`;
   } else {
-    // Overlap: go right, loop around
-    const loopX = Math.max(predBarEnd + stub, succBarStart + stub);
-    d = `M${x1},${y1} H${loopX-r} Q${loopX},${y1} ${loopX},${y1+dy} V${y2-dy} Q${loopX},${y2} ${loopX-r},${y2} H${x2}`;
+    // Overlap/Rückwärts: Schleife nach rechts außen
+    const loopX = Math.max(predBarEnd, succBarStart) + 30;
+    d = `M${x1},${y1} V${routeY+r} Q${x1},${routeY} ${x1+r},${routeY} H${loopX-r} Q${loopX},${routeY} ${loopX},${routeY-r} V${y2+r} Q${loopX},${y2} ${loopX-r},${y2} H${x2}`;
   }
 
   const path = document.createElementNS(ns,"path");
   path.setAttribute("d",d);
   path.setAttribute("fill","none");
   path.setAttribute("stroke",col);
-  path.setAttribute("stroke-width","2");
+  path.setAttribute("stroke-width","1.5");
   path.setAttribute("stroke-opacity",op);
   path.setAttribute("stroke-linecap","round");
   path.setAttribute("stroke-linejoin","round");
@@ -3364,28 +3370,44 @@ async function silentSyncToPlanner(){
     });
     const ptRes=await graphReq("GET",`/planner/plans/${planId}/tasks`);
     const ptMap={};(ptRes.value||[]).forEach(pt=>ptMap[pt.id]=pt);
-    const items=[];
-    tasks.forEach(t=>{
-      items.push({item:t,isSubtask:false,parentTask:null,subIdx:-1});
-      (t.subtasks||[]).forEach((s,si)=>items.push({item:s,isSubtask:true,parentTask:t,subIdx:si}));
-    });
     let changed=0;
-    for(const {item} of items){
-      if(!item.plannerTaskId)continue;
-      const existingPt=ptMap[item.plannerTaskId];
+    for(const t of tasks){
+      if(!t.plannerTaskId)continue;
+      const existingPt=ptMap[t.plannerTaskId];
       if(!existingPt)continue;
-      const pct=STATUS_TO_PCT[item.status||"Offen"]??0;
-      const dueDate=item.end?new Date(item.end+"T23:59:59Z").toISOString():null;
-      const startDate=item.start?new Date(item.start+"T00:00:00Z").toISOString():null;
-      const newBucketId=bucketByStatus[item.status||"Offen"];
+      const pct=STATUS_TO_PCT[t.status||"Offen"]??0;
+      const {start:effStart,end:effEnd}=getTaskDates(t);
+      const dueDate=effEnd?new Date(effEnd+"T23:59:59Z").toISOString():null;
+      const startDate=effStart?new Date(effStart+"T00:00:00Z").toISOString():null;
+      const newBucketId=bucketByStatus[t.status||"Offen"];
       const bucketChanged=newBucketId&&existingPt.bucketId!==newBucketId;
       if(existingPt.percentComplete!==pct||existingPt.dueDateTime!==dueDate||existingPt.startDateTime!==startDate||bucketChanged){
         try{
           const body={percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate};
           if(bucketChanged) body.bucketId=newBucketId;
-          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,body,existingPt["@odata.etag"]);
+          await graphReq("PATCH",`/planner/tasks/${t.plannerTaskId}`,body,existingPt["@odata.etag"]);
           changed++;
         }catch(e){console.warn("Auto-sync patch:",e);}
+      }
+      // Checklist-Status für Unteraufgaben synchronisieren
+      if(t.subtasks&&t.subtasks.length>0){
+        try{
+          const td=await graphReq("GET",`/planner/tasks/${t.plannerTaskId}/details`);
+          const existing=td.checklist||{};
+          const patch={};
+          t.subtasks.forEach(s=>{
+            if(s.plannerChecklistId&&existing[s.plannerChecklistId]){
+              const isChecked=s.status==="Erledigt";
+              if(existing[s.plannerChecklistId].isChecked!==isChecked){
+                patch[s.plannerChecklistId]={"@odata.type":"#microsoft.graph.plannerChecklistItem",isChecked,title:s.task.slice(0,100)};
+              }
+            }
+          });
+          if(Object.keys(patch).length>0){
+            await graphReq("PATCH",`/planner/tasks/${t.plannerTaskId}/details`,{checklist:patch},td["@odata.etag"]);
+            changed++;
+          }
+        }catch(e){console.warn("Checklist sync:",e);}
       }
     }
     if(changed>0){setSyncStatus("synced",`Planner: ${changed} aktualisiert ${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}`);}
@@ -3669,8 +3691,8 @@ function buildExportPreview(){
     `<strong>Modus:</strong> ${mode==="auto"?`Auto (Group: ${groupId?`…${groupId.slice(-8)}`:"⚠ fehlt"})`:"Manuell (Plan-ID direkt)"}<br>`+
     `<strong>Buckets:</strong> Geplant · In Arbeit · Erledigt (statusbasiert)<br>`+
     `<strong>Aufgaben:</strong> ${tasks.length} (${synced} sync'd, ${tasks.length-synced} neu)<br>`+
-    `<strong>Unteraufgaben:</strong> ${allSubs.length} (${syncedSubs} sync'd)<br>`+
-    `<strong>Felder:</strong> Titel, Start, Fälligkeitsdatum, Fortschritt`+warn;
+    `<strong>Unteraufgaben:</strong> ${allSubs.length} → als Checkliste unter Elterntask<br>`+
+    `<strong>Felder:</strong> Titel, Start, Fälligkeitsdatum, Fortschritt, Checkliste`+warn;
 }
 
 // ── EXPORT → PLANNER ─────────────────────────────────────────────────────────
@@ -3792,63 +3814,94 @@ async function doExportToPlanner(){
     const ptRes=await graphReq("GET",`/planner/plans/${planId}/tasks`);
     const ptMap={};(ptRes.value||[]).forEach(pt=>ptMap[pt.id]=pt);
 
-    // 5. Alle Items exportieren
-    const items=[];
-    tasks.forEach(t=>{
-      items.push({item:t,group:t.group,isSubtask:false,parentTask:null,subIdx:-1});
-      (t.subtasks||[]).forEach((s,si)=>items.push({item:s,group:t.group,isSubtask:true,parentTask:t,subIdx:si}));
-    });
-
+    // 5. Nur Hauptaufgaben exportieren (Unteraufgaben → Checklist)
     let created=0,updated=0,failed=0,labelFailed=0;
-    for(let i=0;i<items.length;i++){
-      const {item,group,isSubtask,parentTask,subIdx}=items[i];
-      const itemStatus=item.status||"Offen";
+    for(let i=0;i<tasks.length;i++){
+      const t=tasks[i];
+      const itemStatus=t.status||"Offen";
       const bucketId=bucketByStatus[itemStatus];
-      if(!bucketId){failed++;plLog(`  ✗ Kein Bucket für Status "${itemStatus}": ${item.task}`,"var(--overdue)");continue;}
+      if(!bucketId){failed++;plLog(`  ✗ Kein Bucket für "${itemStatus}": ${t.task}`,"var(--overdue)");continue;}
       const pct=STATUS_TO_PCT[itemStatus]??0;
-      const g=getG(group);
-      // Titel: bei Labels via Beta-API kein Präfix nötig; sonst Gruppen-Präfix
+      const g=getG(t.group);
       const grpPrefix=labelsSupported?"":`[${(g.abbr||g.name).slice(0,8)}] `;
-      const baseTitle=isSubtask?`${parentTask.task.slice(0,35)} › ${item.task}`:item.task;
-      const title=(grpPrefix+baseTitle).slice(0,255);
-      const dueDate=item.end?new Date(item.end+"T23:59:59Z").toISOString():null;
-      const startDate=item.start?new Date(item.start+"T00:00:00Z").toISOString():null;
-      progressTxt.textContent=`${i+1}/${items.length}: ${item.task.slice(0,30)}`;
-      const existingPt=item.plannerTaskId?ptMap[item.plannerTaskId]:null;
+      const title=(grpPrefix+t.task).slice(0,255);
+      // Zeitraum: immer von der Hauptaufgabe (getTaskDates berücksichtigt Unteraufgaben)
+      const {start:effStart,end:effEnd}=getTaskDates(t);
+      const dueDate=effEnd?new Date(effEnd+"T23:59:59Z").toISOString():null;
+      const startDate=effStart?new Date(effStart+"T00:00:00Z").toISOString():null;
+      progressTxt.textContent=`${i+1}/${tasks.length}: ${t.task.slice(0,30)}`;
+      const existingPt=t.plannerTaskId?ptMap[t.plannerTaskId]:null;
 
+      let taskId=t.plannerTaskId;
       if(existingPt){
         try{
-          // Bucket wechseln wenn Status sich geändert hat
           const bucketChanged=existingPt.bucketId!==bucketId;
           const patchBody={percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate,title};
           if(bucketChanged) patchBody.bucketId=bucketId;
-          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,patchBody,existingPt["@odata.etag"]);
+          await graphReq("PATCH",`/planner/tasks/${t.plannerTaskId}`,patchBody,existingPt["@odata.etag"]);
           updated++;plLog(`  ↑ ${title.slice(0,50)}`,"var(--muted)");
-        }catch(e){failed++;plLog(`  ✗ Update: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");continue;}
+        }catch(e){failed++;plLog(`  ✗ Update: ${t.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");continue;}
       } else {
         try{
           const nt=await graphReq("POST","/planner/tasks",{planId,bucketId,title,percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate});
-          item.plannerTaskId=nt.id;
-          if(isSubtask){const par=tasks.find(tt=>tt.id===parentTask.id);if(par?.subtasks?.[subIdx])par.subtasks[subIdx].plannerTaskId=nt.id;}
-          else{const par=tasks.find(tt=>tt.id===item.id);if(par)par.plannerTaskId=nt.id;}
+          taskId=nt.id;
+          t.plannerTaskId=nt.id;
+          const par=tasks.find(tt=>tt.id===t.id);if(par)par.plannerTaskId=nt.id;
           created++;plLog(`  + ${title.slice(0,50)}`,"var(--accent)");
-        }catch(e){failed++;plLog(`  ✗ Erstellen: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");continue;}
+        }catch(e){failed++;plLog(`  ✗ Erstellen: ${t.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");continue;}
       }
 
-      // 6. Label via Beta-API setzen (Gruppen-Zuordnung)
-      if(labelsSupported&&labelMap[group]&&item.plannerTaskId){
+      // 6. Unteraufgaben als Checklist-Items in taskDetails
+      if(taskId&&t.subtasks&&t.subtasks.length>0){
         try{
-          // Task-Details holen für etag
-          const td=await graphReq("GET",`/planner/tasks/${item.plannerTaskId}/details`,null,null,true);
+          const td=await graphReq("GET",`/planner/tasks/${taskId}/details`);
+          const existing=td.checklist||{};
+          // Prüfe welche Unteraufgaben noch nicht in der Checklist sind
+          const checklistPatch={};
+          t.subtasks.forEach((s,si)=>{
+            if(s.plannerChecklistId&&existing[s.plannerChecklistId]){
+              // Bereits vorhanden – Status aktualisieren
+              const isChecked=s.status==="Erledigt";
+              if(existing[s.plannerChecklistId].isChecked!==isChecked){
+                checklistPatch[s.plannerChecklistId]={
+                  "@odata.type":"#microsoft.graph.plannerChecklistItem",
+                  isChecked,title:s.task.slice(0,100)
+                };
+              }
+            } else {
+              // Neu anlegen
+              const newId=`sub_${t.id}_${si}_${Date.now()}`;
+              checklistPatch[newId]={
+                "@odata.type":"#microsoft.graph.plannerChecklistItem",
+                title:s.task.slice(0,100),
+                isChecked:s.status==="Erledigt"
+              };
+              // ID für künftige Updates merken
+              s.plannerChecklistId=newId;
+            }
+          });
+          if(Object.keys(checklistPatch).length>0){
+            await graphReq("PATCH",`/planner/tasks/${taskId}/details`,{checklist:checklistPatch},td["@odata.etag"]);
+            plLog(`    ↳ ${t.subtasks.length} Unteraufgabe${t.subtasks.length!==1?"n":""} als Checkliste`,"var(--muted)");
+          }
+        }catch(ce){
+          plLog(`  ⚠ Checkliste für „${t.task.slice(0,30)}" fehlgeschlagen: ${ce.message.slice(0,60)}`,"var(--today)");
+        }
+      }
+
+      // 7. Label via Beta-API setzen (Gruppen-Zuordnung)
+      if(labelsSupported&&labelMap[t.group]&&taskId){
+        try{
+          const td=await graphReq("GET",`/planner/tasks/${taskId}/details`,null,null,true);
           const cats=td.appliedCategories||{};
-          const slot=labelMap[group];
+          const slot=labelMap[t.group];
           if(!cats[slot]){
             cats[slot]=true;
-            await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}/details`,{appliedCategories:cats},td["@odata.etag"],true);
+            await graphReq("PATCH",`/planner/tasks/${taskId}/details`,{appliedCategories:cats},td["@odata.etag"],true);
           }
         }catch(le){
           labelFailed++;
-          if(labelFailed===1) plLog(`  ⚠ Labels konnten nicht gesetzt werden (Beta-API): ${le.message.slice(0,60)}`,"var(--today)");
+          if(labelFailed===1) plLog(`  ⚠ Labels (Beta-API): ${le.message.slice(0,60)}`,"var(--today)");
         }
       }
     }
