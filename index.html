@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026</title>
+<title>Meilensteinplan · AC 2026 · v12</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -265,11 +265,7 @@ body.classic .sub-toggle{display:none!important}
 .person-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;background:var(--surface2);border:1px solid var(--border2);color:var(--text);flex-shrink:0;white-space:nowrap}
 .pa{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0}
 /* ── COMMENTS ── */
-.comment-item{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 11px;margin-bottom:7px}
-.comment-meta{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px}
-.comment-text{font-size:12px;line-height:1.5;color:var(--text);word-break:break-word}
-.comment-inp{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:7px 9px;color:var(--text);font-size:12px;font-family:'Syne',sans-serif;resize:vertical;min-height:56px;outline:none;box-sizing:border-box}
-.comment-inp:focus{border-color:var(--accent)}
+
 
 .draw-ghost{position:absolute;top:4px;height:calc(100% - 8px);background:var(--accent);opacity:.25;border-radius:3px;pointer-events:none;z-index:4;border:2px dashed var(--accent)}
 .drag-tooltip{position:fixed;background:var(--text);color:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 8px;border-radius:4px;pointer-events:none;z-index:999;white-space:nowrap;transform:translate(-50%,-130%);font-weight:500}
@@ -348,6 +344,17 @@ body.classic .sub-toggle{display:none!important}
 .auth-btn.login{background:var(--accent);color:var(--accent-fg);border-color:transparent}
 .auth-btn.login:hover{opacity:.88}
 
+/* ── ABHÄNGIGKEITEN ── */
+.dep-svg{position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:1;overflow:visible}
+.dep-arrow{fill:none;stroke:var(--muted);stroke-width:1.5;opacity:.45}
+.dep-arrow.warning{stroke:var(--overdue);opacity:.8}
+.trow.dep-warning .tname{color:var(--overdue)!important}
+.trow.dep-warning .bar{box-shadow:inset 0 0 0 2px var(--overdue)!important}
+.trow.dep-warning .ms{box-shadow:0 0 0 2px var(--overdue)!important}
+.dep-warn-badge{display:inline-block;font-size:9px;background:rgba(192,57,43,.15);color:var(--overdue);border:1px solid rgba(192,57,43,.3);border-radius:3px;padding:1px 5px;margin-left:4px;font-family:'IBM Plex Mono',monospace;flex-shrink:0}
+/* bottom padding for gantt */
+.gantt-bottom-pad{height:60px;flex-shrink:0}
+
 </style>
 </head>
 <body>
@@ -362,6 +369,15 @@ body.classic .sub-toggle{display:none!important}
       <button class="mode-btn active" data-mode="classic" onclick="setMode('classic')">Übersicht</button>
       <button class="mode-btn" data-mode="interactive" onclick="setMode('interactive')">Planung</button>
     </div>
+    <button class="btn-pdf edit-only" id="plannerBtn" onclick="openPlannerModal()" title="Microsoft Planner synchronisieren" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="7" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="1" y="7" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M7 9.5h5M9.5 7v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Planner
+    </button>
     <button class="btn-pdf" onclick="openPdfModal()">
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M6.5 1v7M6.5 8l-2.5-2.5M6.5 8l2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -424,15 +440,18 @@ body.classic .sub-toggle{display:none!important}
       <option value="alpha_desc">Name Z–A</option>
     </select>
     <div class="sep"></div>
-    <button class="btn btn-g" onclick="openManageModal()">⊞ Gruppen verwalten</button>
-    <button class="btn btn-g persons-only" onclick="openPersonsModal()">👤 Personen</button>
+    <button class="btn btn-g edit-only" onclick="openManageModal()">⊞ Gruppen verwalten</button>
+    <div class="sep"></div>
+    <button class="btn btn-g" onclick="collapseAll()" title="Alle Gruppen einklappen">⊟ Alle ein</button>
+    <button class="btn btn-g" onclick="expandAll()" title="Alle Gruppen ausklappen">⊞ Alle aus</button>
+    <button class="btn btn-g persons-only edit-only" onclick="openPersonsModal()">👤 Personen</button>
     <div class="sep"></div>
     <div class="vg">
       <button class="vb active" id="modeGrpBtn" onclick="setGroupedMode(true)" title="Aufgaben nach Teams gruppiert">Gruppiert</button>
       <button class="vb" id="modeFlatBtn" onclick="setGroupedMode(false)" title="Alle Aufgaben in einer Liste">Gesamt</button>
     </div>
     <div class="sep"></div>
-    <button class="btn btn-p" onclick="openTaskModal()">+ Aufgabe</button>
+    <button class="btn btn-p edit-only" onclick="openTaskModal()">+ Aufgabe</button>
   </div>
 </div>
 
@@ -490,6 +509,7 @@ body.classic .sub-toggle{display:none!important}
     </div>
     <div class="fl" style="display:none"><label class="flb">Kürzel / Zuständig <span style="opacity:.6">(Badge in der Zeile)</span></label><input class="fi" id="fAsgn" placeholder="z.B. GT, LT, Media..."></div>
     <div class="fl"><label class="flb">Notizen</label><textarea class="ft" id="fNotes" placeholder="Schritte, Hinweise..."></textarea></div>
+    <div class="fl dp-planning"><label class="flb">Vorgänger <span style="opacity:.6;font-weight:400">(Abhängigkeit)</span></label><select class="fs" id="fDep"><option value="">– Keine –</option></select></div>
     <div class="fl dp-planning">
       <label class="flb">Unteraufgaben</label>
       <div id="subtaskList" style="margin-top:6px"></div>
@@ -514,6 +534,13 @@ body.classic .sub-toggle{display:none!important}
       </div>
     </div>
     <div class="fl" id="gKeyRow"><label class="flb">Kürzel <span style="opacity:.6">(Badge im Gesamt-Modus, max. 5 Zeichen)</span></label><input class="fi" id="gKey" placeholder="z.B. MEIL, GEIS, PR" style="text-transform:uppercase" maxlength="5"></div>
+    <div class="fl">
+      <label class="flb">Verknüpfte Microsoft Teams <span style="opacity:.6;font-weight:400">(Mitglieder + Berechtigungen)</span></label>
+      <div id="gTeamsWrap" style="min-height:36px;padding:6px 0">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)" id="gTeamsLoading">Teams werden geladen…</div>
+        <div id="gTeamsList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+      </div>
+    </div>
     <div class="fa">
       <button class="btn btn-d" id="gDelBtn" onclick="deleteGroup()" style="margin-right:auto">Löschen</button>
       <button class="btn btn-g" onclick="closeModal('groupModal')">Abbrechen</button>
@@ -557,12 +584,7 @@ body.classic .sub-toggle{display:none!important}
       <div id="subPersons" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
     </div>
     <div class="fl"><label class="flb">Notizen</label><textarea class="ft" id="subNotes" placeholder="Hinweise..." style="min-height:50px"></textarea></div>
-    <div id="subCommentsSection" style="display:none">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Kommentare</div>
-      <div id="subCommentsList"></div>
-      <textarea class="comment-inp" id="subCommentInp" placeholder="Kommentar hinzufügen…"></textarea>
-      <button class="btn btn-g" style="margin-top:6px;width:100%;justify-content:center" onclick="addSubComment()">+ Kommentar</button>
-    </div>
+    <div class="fl"><label class="flb">Vorgänger <span style="opacity:.6;font-weight:400">(Abhängigkeit)</span></label><select class="fs" id="subDep"><option value="">– Keine –</option></select></div>
     <div class="fa">
       <button class="btn btn-d" id="subDelBtn" onclick="deleteSubtask()" style="margin-right:auto">Löschen</button>
       <button class="btn btn-g" onclick="closeModal('subModal')">Abbrechen</button>
@@ -589,7 +611,6 @@ body.classic .sub-toggle{display:none!important}
         <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Neue Person</div>
         <div style="display:flex;gap:8px;align-items:center">
           <input class="fi" id="newPersonName" placeholder="Name…" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')addPerson()">
-          <input type="color" id="newPersonColor" value="#1a7a55" style="width:32px;height:32px;padding:2px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);cursor:pointer;flex-shrink:0">
           <button class="btn btn-p" onclick="addPerson()">+ Hinzufügen</button>
         </div>
       </div>
@@ -608,6 +629,92 @@ body.classic .sub-toggle{display:none!important}
     </div>
     <div class="fa" style="margin-top:12px">
       <button class="btn btn-g" onclick="closeModal('personsModal')">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLANNER MODAL -->
+<div class="mo" id="plannerModal" onclick="cmo(event,'plannerModal')">
+  <div class="md" style="width:520px">
+    <button class="mdx" onclick="closeModal('plannerModal')">✕</button>
+    <div class="mdtit">Microsoft Planner – Sync</div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border2);margin-bottom:16px">
+      <button id="plTabCfgBtn" onclick="switchPlTab('cfg')" style="padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:none;border:none;border-bottom:2px solid var(--accent);margin-bottom:-2px;color:var(--text);font-weight:600;cursor:pointer">Einstellungen</button>
+      <button id="plTabExpBtn" onclick="switchPlTab('exp')" style="padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted);cursor:pointer">Export → Planner</button>
+      <button id="plTabImpBtn" onclick="switchPlTab('imp')" style="padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted);cursor:pointer">Import ← Planner</button>
+    </div>
+
+    <!-- Tab: Einstellungen -->
+    <div id="plTabCfg">
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Ein Planner-Plan mit Buckets pro Gruppe. Beim ersten Export wird der Plan automatisch angelegt. Die Plan-ID wird hier gespeichert.
+      </p>
+      <div class="fl">
+        <label class="flb">Microsoft 365 Gruppe (Group-ID) <span style="opacity:.6">– für den Planner-Plan</span></label>
+        <input class="fi" id="plGroupId" placeholder="z.B. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:4px">Die Objekt-ID der M365-Gruppe, in der der Plan erstellt werden soll (Azure AD → Gruppen).</div>
+      </div>
+      <div class="fl">
+        <label class="flb">Plan-ID <span style="opacity:.6">(wird nach erstem Export automatisch eingetragen)</span></label>
+        <div style="display:flex;gap:8px">
+          <input class="fi" id="plPlanId" placeholder="Wird nach Export befüllt" style="flex:1">
+          <button class="btn btn-g" onclick="clearPlanId()" title="Plan-ID zurücksetzen (neuen Plan anlegen)">✕ Reset</button>
+        </div>
+      </div>
+      <div class="fl">
+        <label class="flb">Planner-Status Mapping</label>
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">Offen</div>
+          <span>→</span>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">notStarted</div>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">In Arbeit</div>
+          <span>→</span>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">inProgress</div>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">Erledigt</div>
+          <span>→</span>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">completed</div>
+        </div>
+      </div>
+      <div class="fa" style="margin-top:8px">
+        <button class="btn btn-g" onclick="closeModal('plannerModal')">Schließen</button>
+        <button class="btn btn-p" onclick="savePlannerSettings()">Speichern</button>
+      </div>
+    </div>
+
+    <!-- Tab: Export -->
+    <div id="plTabExp" style="display:none">
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Erstellt Aufgaben im Planner (ein Bucket pro Gruppe). Bereits exportierte Aufgaben werden aktualisiert, neue werden angelegt.
+      </p>
+      <div id="plExportPreview" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;max-height:240px;overflow-y:auto"></div>
+      <div id="plExportLog" style="display:none;max-height:200px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);line-height:1.7;margin-bottom:12px"></div>
+      <div id="plExportProgress" style="display:none;text-align:center;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)">
+        <div style="width:18px;height:18px;border:2px solid var(--dim);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle"></div>
+        <span id="plExportProgressTxt">Exportiert…</span>
+      </div>
+      <div class="fa">
+        <button class="btn btn-g" onclick="closeModal('plannerModal')">Schließen</button>
+        <button class="btn btn-p" id="plExportBtn" onclick="doExportToPlanner()">▶ Exportieren</button>
+      </div>
+    </div>
+
+    <!-- Tab: Import -->
+    <div id="plTabImp" style="display:none">
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Liest Status-Änderungen aus dem Planner zurück in den Zeitplan. Nur Status wird übernommen – keine Datums- oder Namenänderungen.
+      </p>
+      <div id="plImportPreview" style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;max-height:240px;overflow-y:auto"></div>
+      <div id="plImportProgress" style="display:none;text-align:center;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)">
+        <div style="width:18px;height:18px;border:2px solid var(--dim);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;margin-right:8px;vertical-align:middle"></div>
+        <span id="plImportProgressTxt">Lese Planner…</span>
+      </div>
+      <div class="fa">
+        <button class="btn btn-g" onclick="closeModal('plannerModal')">Schließen</button>
+        <button class="btn btn-g" id="plPreviewBtn" onclick="previewImportFromPlanner()">⊙ Vorschau laden</button>
+        <button class="btn btn-p" id="plImportBtn" onclick="doImportFromPlanner()" style="display:none">↓ Status übernehmen</button>
+      </div>
     </div>
   </div>
 </div>
@@ -711,6 +818,7 @@ let interactiveMode=false,classicView="quarter";
 let coll={},selId=null,zoom=1,cols=[],ptitle="Meilensteinplan · AC 2026";
 let selCol="#4a9eff";
 let groupedMode=true; // true = grouped by team, false = flat sorted list
+let plannerSettings={groupId:"",planId:""}; // Microsoft Planner config
 const today=new Date();today.setHours(0,0,0,0);
 
 // ── MSAL / SHAREPOINT ────────────────────────────────────────────────────────
@@ -718,7 +826,7 @@ const MSAL_CONFIG={auth:{clientId:"7ed3329b-9519-4f28-a63c-94f2033d6c59",authori
 const SP_SITE="https://aczeltlager.sharepoint.com/sites/AC-Zeitplan";
 const SP_FILE="ac26_data.json";
 const GRAPH_BASE="https://graph.microsoft.com/v1.0";
-const SCOPES=["Sites.ReadWrite.All","User.Read"];
+const SCOPES=["Sites.ReadWrite.All","User.Read","Team.ReadBasic.All","GroupMember.Read.All"];
 let msalApp=null,msalAccount=null;
 let spDriveId=null,pendingSave=false;
 
@@ -754,7 +862,6 @@ async function onSignedIn(){
   setSyncStatus("syncing","Verbinde…");
   try{
     const token=await getToken();if(!token)throw new Error("No token");
-    // Get drive
     const siteRes=await fetch(`${GRAPH_BASE}/sites/aczeltlager.sharepoint.com:/sites/AC-Zeitplan`,{headers:{Authorization:`Bearer ${token}`}});
     if(!siteRes.ok)throw new Error("Site not found");
     const site=await siteRes.json();
@@ -762,6 +869,9 @@ async function onSignedIn(){
     const drive=await driveRes.json();
     spDriveId=drive.id;
     await loadFromSharePoint(token);
+    // Sync team members in background
+    setTimeout(()=>syncAllTeamMembers(),500);
+    checkUserPermission();
     setSyncStatus("synced","Synchronisiert");
   }catch(e){console.warn("SharePoint error:",e);setSyncStatus("error","Verbindungsfehler");}
 }
@@ -789,11 +899,66 @@ async function saveToSharePoint(){
   }catch(e){console.warn("Save error:",e);setSyncStatus("error","Speicherfehler");saveLocal();}
 }
 async function manualSync(){if(msalAccount)await saveToSharePoint();}
-function buildSaveData(){return{tasks,groups,nid:nextId,coll,collSub,title:ptitle,persons:PERSONS,teams:TEAMS};}
+
+// ── RANDOM COLORS ─────────────────────────────────────────────────────────────
+const PERSON_COLORS=["#1a7a55","#1a5fa8","#7c3aed","#b06000","#c0392b","#2c5f6e","#8b1a5a","#2d9e6a","#4a9eff","#b87fff","#f5a623","#ff6b6b","#f06292","#60c4f5","#4dd9a0","#0a4738"];
+function randomPersonColor(){return PERSON_COLORS[Math.floor(Math.random()*PERSON_COLORS.length)];}
+
+// ── PERMISSIONS ───────────────────────────────────────────────────────────────
+let currentUserEmail="";
+let currentUserIsAdmin=false; // true if owner of any linked Team or global admin list
+
+function checkUserPermission(){
+  if(!msalAccount){currentUserIsAdmin=false;return;}
+  currentUserEmail=(msalAccount.username||"").toLowerCase();
+  // Check if user is in any group's ownerEmails
+  const allOwners=groups.flatMap(g=>g.ownerEmails||[]).map(e=>e.toLowerCase());
+  currentUserIsAdmin=allOwners.includes(currentUserEmail)||allOwners.length===0;
+}
+
+function canEdit(){return currentUserIsAdmin||!msalAccount;}
+
+// ── SYNC TEAM MEMBERS FROM GRAPH ─────────────────────────────────────────────
+async function syncTeamMembers(teamLinks){
+  if(!teamLinks||!teamLinks.length)return;
+  const token=await getToken();if(!token)return;
+  const allMembers=[],allOwners=[];
+  for(const tid of teamLinks){
+    try{
+      const [mRes,oRes]=await Promise.all([
+        fetch(`${GRAPH_BASE}/teams/${tid}/members`,{headers:{Authorization:`Bearer ${token}`}}),
+        fetch(`${GRAPH_BASE}/groups/${tid}/owners`,{headers:{Authorization:`Bearer ${token}`}})
+      ]);
+      if(mRes.ok){const d=await mRes.json();(d.value||[]).forEach(m=>{if(m.displayName&&!allMembers.find(x=>x.email===m.email))allMembers.push({name:m.displayName,email:(m.email||"").toLowerCase()});});}
+      if(oRes.ok){const d=await oRes.json();(d.value||[]).forEach(o=>{if(o.userPrincipalName)allOwners.push(o.userPrincipalName.toLowerCase());});}
+    }catch(e){console.warn("Team sync error:",e);}
+  }
+  // Merge into PERSONS (add missing, assign random color)
+  allMembers.forEach(m=>{
+    if(!PERSONS.find(p=>p.name===m.name)){
+      PERSONS.push({name:m.name,color:randomPersonColor(),email:m.email});
+    }
+  });
+  // Store ownerEmails on groups with these teamLinks
+  groups.forEach(g=>{
+    if((g.teamLinks||[]).some(tl=>teamLinks.includes(tl))){
+      g.ownerEmails=allOwners;
+    }
+  });
+  checkUserPermission();
+  save();render();updateAuthUI();
+}
+
+async function syncAllTeamMembers(){
+  const allLinks=[...new Set(groups.flatMap(g=>g.teamLinks||[]))];
+  if(allLinks.length)await syncTeamMembers(allLinks);
+}
+function buildSaveData(){return{tasks,groups,nid:nextId,coll,collSub,title:ptitle,persons:PERSONS,teams:TEAMS,plannerSettings};}
 function applyData(d){
   if(d.tasks)tasks=d.tasks;if(d.groups)groups=d.groups;if(d.nid)nextId=d.nid;
   if(d.coll)coll=d.coll;if(d.collSub)collSub=d.collSub;if(d.title)ptitle=d.title;
   if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;
+  if(d.plannerSettings)plannerSettings={...plannerSettings,...d.plannerSettings};
   render();
 }
 function saveLocal(){localStorage.setItem("ac26_v3",JSON.stringify(buildSaveData()));}
@@ -809,18 +974,25 @@ function updateAuthUI(){
     const dn=msalAccount.name||msalAccount.username;
     const ini=dn.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
     if(avatar){avatar.textContent=ini;avatar.style.display="flex";}
-    name.textContent=dn;
+    const role=canEdit()?"Bearbeiten":"Nur lesen";
+    const roleColor=canEdit()?"var(--accent)":"var(--muted)";
+    name.innerHTML=`${esc(dn)} <span style="font-size:9px;padding:1px 6px;border-radius:3px;background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44;margin-left:4px">${role}</span>`;
     if(status)status.style.display="flex";
     if(btn)btn.style.display="none";
+    // Show/hide edit elements based on permission
+    document.querySelectorAll(".edit-only").forEach(el=>el.style.display=canEdit()?"":"none");
+    // Show planner button for editors
+    updatePlannerBtn();
   }else{
     if(avatar)avatar.style.display="none";
     name.textContent="Nicht angemeldet – Daten werden lokal gespeichert";
     if(status)status.style.display="none";
     if(btn)btn.style.display="";
+    updatePlannerBtn();
   }
 }
 
-function load(){try{const s=localStorage.getItem("ac26_v3");if(s){const d=JSON.parse(s);tasks=d.tasks||DEF_TASKS;groups=d.groups||DEF_GROUPS;nextId=d.nid||100;coll=d.coll||{};collSub=d.collSub||{};ptitle=d.title||ptitle;if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;}else{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}catch{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}
+function load(){try{const s=localStorage.getItem("ac26_v3");if(s){const d=JSON.parse(s);tasks=d.tasks||DEF_TASKS;groups=d.groups||DEF_GROUPS;nextId=d.nid||100;coll=d.coll||{};collSub=d.collSub||{};ptitle=d.title||ptitle;if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;if(d.plannerSettings)plannerSettings={...plannerSettings,...d.plannerSettings};}else{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}catch{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}
 function save(){
   saveLocal();
   if(msalAccount){
@@ -1131,6 +1303,9 @@ function render(){
       html+=`<span class="ci">▾</span>`;
       html+=`<div style="width:7px;height:7px;border-radius:1px;background:${color};flex-shrink:0"></div>`;
       html+=`${esc(g.name)}`;
+      html+=`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;opacity:.6;margin-left:4px">${grpTasks.length}</span>`;
+      html+=`<button class="gedit" onclick="event.stopPropagation();collapseGrpSubs('${gk}')" title="Unteraufgaben einklappen">⊟</button>`;
+      html+=`<button class="gedit" onclick="event.stopPropagation();expandGrpSubs('${gk}')" title="Unteraufgaben ausklappen">⊞</button>`;
       html+=`<button class="gedit" onclick="event.stopPropagation();openGroupModal('${gk}')" title="Gruppe bearbeiten">✎</button>`;
       html+=`</div>`;
       html+=`<div class="grp-bars" style="width:${totalW}px;background:${color}16"></div>`;
@@ -1156,12 +1331,120 @@ function render(){
     if(wkHtml)html+=`<div class="gantt-row" style="height:0;overflow:visible;pointer-events:none"><div style="width:var(--label-w);min-width:var(--label-w);flex-shrink:0"></div><div style="flex:1;position:relative;height:0">${wkHtml}</div></div>`;
   }
   if(tx>0)html+=`<div class="gantt-row" style="height:0;overflow:visible;pointer-events:none"><div style="width:var(--label-w);min-width:var(--label-w);flex-shrink:0"></div><div style="flex:1;position:relative;height:0"><div class="tl" style="left:${tx}px;background:var(--today);height:9999px;top:-9999px"></div></div></div>`;
+  html+=`<div class="gantt-bottom-pad"></div>`;
 
   document.getElementById("ganttInner").innerHTML=html;
   updateStats();updateFilterOpts();
+  renderDependencies();
 }
 
 function renderTitle(){const d=document.getElementById("titleDisplay");d.textContent=ptitle;document.title=ptitle;}
+
+function renderDependencies(){
+  document.querySelectorAll(".dep-svg-wrap").forEach(e=>e.remove());
+  document.querySelectorAll(".dep-warn-badge").forEach(e=>e.remove());
+  document.querySelectorAll(".trow,.subtrow").forEach(r=>r.classList.remove("dep-warning"));
+
+  // Collect all deps: tasks and subtasks
+  const allDeps=[];
+  tasks.forEach(t=>{
+    if(t.dep&&tasks.find(p=>p.id===t.dep)) allDeps.push({type:"task",t,predId:t.dep});
+    (t.subtasks||[]).forEach((s,si)=>{
+      if(s.dep){
+        // dep can reference another subtask "parentId:idx" or a task id
+        allDeps.push({type:"sub",t,si,s,predSpec:s.dep});
+      }
+    });
+  });
+  if(!allDeps.length) return;
+
+  const inner=document.getElementById("ganttInner");
+  const labelW=parseInt(getComputedStyle(document.documentElement).getPropertyValue("--label-w"))||280;
+  inner.style.position="relative";
+
+  const ns="http://www.w3.org/2000/svg";
+  const svgWrap=document.createElement("div");
+  svgWrap.className="dep-svg-wrap";
+  svgWrap.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible";
+  const svg=document.createElementNS(ns,"svg");
+  svg.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible";
+
+  // Arrow markers
+  const defs=document.createElementNS(ns,"defs");
+  [{id:"dah-n",col:"var(--muted)",op:.55},{id:"dah-w",col:"var(--overdue)",op:.9}].forEach(m=>{
+    const mk=document.createElementNS(ns,"marker");
+    mk.setAttribute("id",m.id);mk.setAttribute("markerWidth","6");mk.setAttribute("markerHeight","6");
+    mk.setAttribute("refX","5");mk.setAttribute("refY","3");mk.setAttribute("orient","auto");
+    const p=document.createElementNS(ns,"polygon");
+    p.setAttribute("points","0 0,6 3,0 6");p.setAttribute("fill",m.col);p.setAttribute("opacity",m.op);
+    mk.appendChild(p);defs.appendChild(mk);
+  });
+  svg.appendChild(defs);
+
+  const innerTop=inner.getBoundingClientRect().top+window.scrollY;
+
+  allDeps.forEach(dep=>{
+    if(dep.type!=="task") return; // subtasks handled below
+    const t=dep.t, pred=tasks.find(p=>p.id===dep.predId);
+    if(!pred) return;
+
+    const isWarning=pd(t.start)<=pd(pred.end)&&t.status!=="Erledigt";
+    const predRow=document.querySelector(`.trow[data-tid="${pred.id}"]`);
+    const succRow=document.querySelector(`.trow[data-tid="${t.id}"]`);
+    if(!predRow||!succRow) return;
+
+    if(isWarning){
+      succRow.classList.add("dep-warning");
+      const tname=succRow.querySelector(".tname");
+      if(tname&&!succRow.querySelector(".dep-warn-badge")){
+        const b=document.createElement("span");b.className="dep-warn-badge";
+        b.title=`Startet vor Ende von „${pred.task}"`;b.textContent="⚠ Konflikt";
+        tname.insertAdjacentElement("afterend",b);
+      }
+    }
+
+    drawArrow(svg,ns,pred,t,predRow,succRow,inner,labelW,isWarning);
+  });
+
+  svgWrap.appendChild(svg);
+  inner.appendChild(svgWrap);
+}
+
+function drawArrow(svg,ns,pred,succ,predRow,succRow,inner,labelW,isWarning){
+  const predRect=predRow.getBoundingClientRect();
+  const succRect=succRow.getBoundingClientRect();
+  const innerRect=inner.getBoundingClientRect();
+
+  // X coordinates in gantt space
+  const predBarEnd = labelW + cx(pred.start) + (pred.start===pred.end ? 7 : bw(pred.start,pred.end));
+  const succBarStart = labelW + cx(succ.start) - (succ.start===succ.end ? 7 : 0);
+
+  // Y: center of each row, relative to inner div
+  const y1 = predRect.top - innerRect.top + predRect.height/2;
+  const y2 = succRect.top - innerRect.top + succRect.height/2;
+  const x1 = predBarEnd;
+  const x2 = succBarStart;
+
+  // Orthogonal path: right → down → left to target
+  // Small horizontal stub right, then vertical, then horizontal to bar start
+  const stubR = 10; // pixels to the right before going down
+  const xMid = Math.max(x1 + stubR, x2 - stubR);
+
+  const col=isWarning?"var(--overdue)":"var(--muted)";
+  const op=isWarning?0.85:0.45;
+  const marker=isWarning?"url(#dah-w)":"url(#dah-n)";
+
+  const path=document.createElementNS(ns,"path");
+  // L-shaped: right stub → down → right to target
+  const d=`M${x1},${y1} H${xMid} V${y2} H${x2}`;
+  path.setAttribute("d",d);
+  path.setAttribute("fill","none");
+  path.setAttribute("stroke",col);
+  path.setAttribute("stroke-width","1.5");
+  path.setAttribute("stroke-opacity",op);
+  path.setAttribute("marker-end",marker);
+  svg.appendChild(path);
+}
 
 function updateStats(){
   const v=visible();
@@ -1200,6 +1483,10 @@ function setView(v){view=v;document.querySelectorAll(".vb").forEach(b=>b.classLi
 function setFilter(v){fg=v;render();}
 function setSF(v){fstt=v;render();}
 function togGrp(g){coll[g]=!coll[g];save();render();}
+function collapseAll(){groups.forEach(g=>coll[g.key]=true);Object.keys(collSub).forEach(k=>collSub[k]=true);save();render();}
+function expandAll(){groups.forEach(g=>coll[g.key]=false);Object.keys(collSub).forEach(k=>collSub[k]=false);save();render();}
+function collapseGrpSubs(gk){tasks.filter(t=>t.group===gk&&t.subtasks&&t.subtasks.length).forEach(t=>collSub[t.id]=true);save();render();}
+function expandGrpSubs(gk){tasks.filter(t=>t.group===gk&&t.subtasks&&t.subtasks.length).forEach(t=>collSub[t.id]=false);save();render();}
 function scrollToToday(){const x=xDate(today,cols),s=document.getElementById("ganttScroll");s.scrollLeft=Math.max(0,x-s.clientWidth/2+280/2);}
 
 // per-view minimum zoom so labels never collapse
@@ -1285,17 +1572,13 @@ function renderDetail(id){
     const allOn=team.members.length>0&&team.members.every(m=>persons.includes(m));
     return`<button onclick="assignTeamToTask(${id},'${esc(team.name)}')" style="padding:2px 8px;border-radius:8px;font-size:10px;font-family:'IBM Plex Mono',monospace;background:${allOn?'var(--accent)':'var(--surface3)'};border:1.5px solid ${allOn?'var(--accent)':'var(--border2)'};color:${allOn?'#fff':'var(--muted)'};cursor:pointer;font-weight:${allOn?'600':'400'}">${esc(team.name)}</button>`;
   }).join(""):"";
-  const commentsHtml=comments.map((c,i)=>`
-    <div class="comment-item">
-      <div class="comment-meta">${esc(c.author||"–")} · ${c.date||""} <button onclick="deleteComment(${id},${i})" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">✕</button></div>
-      <div class="comment-text">${esc(c.text)}</div>
-    </div>`).join("");
+  const commentsHtml="";
 
   document.getElementById("detailInner").innerHTML=`
     <div style="position:relative;padding-top:2px">
       <button style="position:absolute;top:0;right:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px" onclick="closeDetail()">✕</button>
       <div class="dptag" style="background:${color}22;color:${color}">${esc(g.name)}</div>
-      <div class="dptit">${esc(t.task)}${overdue?` <span class="dp-planning" style="font-size:11px;color:var(--overdue);font-weight:400">⚠ überfällig</span>`:""}</div>
+      <div class="dptit">${esc(t.task)}${overdue?` <span class="dp-planning" style="font-size:11px;color:var(--overdue);font-weight:400">⚠ überfällig</span>`:""}${(()=>{const pred=t.dep&&tasks.find(p=>p.id===t.dep);return pred&&pd(t.start)<=pd(pred.end)&&t.status!=="Erledigt"?` <span style="font-size:11px;color:var(--overdue);font-weight:400">⚠ Konflikt mit „${esc(pred.task)}"</span>`:"";})()}</div>
       ${dpProgBar||""}
       ${(()=>{
         const es=hasSubs?getEffectiveStatus(t):t.status;
@@ -1342,13 +1625,7 @@ function renderDetail(id){
           <div style="padding:6px 0;cursor:pointer;color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px" onclick="openSubModal(${t.id},-1)">
             <span style="font-size:14px;line-height:1">+</span> Unteraufgabe hinzufügen
           </div>
-        </div>`:""}`}      <div class="dp-planning" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Kommentare</div>
-        ${commentsHtml}
-        <textarea class="comment-inp" id="commentInp${id}" placeholder="Kommentar hinzufügen…"></textarea>
-        <button class="btn btn-g" style="margin-top:6px;width:100%;justify-content:center" onclick="addComment(${id})">+ Kommentar</button>
-      </div>
-      <div class="dpa" style="margin-top:12px"><button class="btn btn-g" onclick="openTaskModal(${t.id})" style="flex:1">✎ Bearbeiten</button><button class="btn btn-d" onclick="delTask(${t.id})">✕</button></div>
+        </div>`:""}`}      <div class="dpa" style="margin-top:12px"><button class="btn btn-g" onclick="openTaskModal(${t.id})" style="flex:1">✎ Bearbeiten</button><button class="btn btn-d" onclick="delTask(${t.id})">✕</button></div>
     </div>`;
   document.getElementById("detailPanel").classList.add("open");
 }
@@ -1376,20 +1653,6 @@ function assignTeamToTask(id,teamName){
   if(allOn){t.persons=t.persons.filter(m=>!team.members.includes(m));}
   else{team.members.forEach(m=>{if(!t.persons.includes(m))t.persons.push(m);});}
   save();render();renderDetail(id);
-}
-function addComment(id){
-  const inp=document.getElementById("commentInp"+id);
-  if(!inp||!inp.value.trim())return;
-  const t=tasks.find(t=>t.id===id);if(!t)return;
-  if(!t.comments)t.comments=[];
-  const now=new Date();
-  t.comments.push({text:inp.value.trim(),author:"",date:`${now.getDate().toString().padStart(2,"0")}.${(now.getMonth()+1).toString().padStart(2,"0")}.${now.getFullYear()}`});
-  save();renderDetail(id);
-}
-function deleteComment(taskId,idx){
-  const t=tasks.find(t=>t.id===taskId);if(!t||!t.comments)return;
-  if(!confirm("Kommentar löschen?"))return;
-  t.comments.splice(idx,1);save();renderDetail(taskId);
 }
 function delTask(id){if(!confirm("Aufgabe löschen?"))return;tasks=tasks.filter(t=>t.id!==id);selId=null;document.getElementById("detailPanel").classList.remove("open");save();render();}
 
@@ -1482,6 +1745,22 @@ function openTaskModal(id){
     document.getElementById("taskDelBtn").style.display="none";
   }
   m.classList.add("open");document.getElementById("fTask").focus();
+  // Vorgänger-Dropdown befüllen (gruppiert)
+  const depSel=document.getElementById("fDep");
+  if(depSel){
+    const curId=parseInt(document.getElementById("eid").value)||0;
+    let depHtml=`<option value="">– Keine –</option>`;
+    groups.forEach(g=>{
+      const grpTasks=tasks.filter(tt=>tt.group===g.key&&tt.id!==curId);
+      if(!grpTasks.length) return;
+      depHtml+=`<optgroup label="${esc(g.name)}">`;
+      grpTasks.forEach(tt=>{ depHtml+=`<option value="${tt.id}">${esc(tt.task)}</option>`; });
+      depHtml+=`</optgroup>`;
+    });
+    depSel.innerHTML=depHtml;
+    const curT=tasks.find(tt=>tt.id===curId);
+    depSel.value=curT?.dep||"";
+  }
 }
 function deleteTaskFromModal(){
   const idStr=document.getElementById("eid").value;
@@ -1500,38 +1779,82 @@ function saveTask(){
   if(pd(end)<pd(start)){alert("Enddatum muss nach Startdatum liegen.");return;}
   const idS=document.getElementById("eid").value;
   const progress=parseInt(document.getElementById("fProgress").value)||0;
-  if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;if(!modalSubtasks.length)t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();if(!modalSubtasks.length)t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];}}
-  else tasks.push({id:nextId++,task,group:document.getElementById("fGroup").value,status:document.getElementById("fStatus").value,start,end,assigned:document.getElementById("fAsgn").value.trim(),notes:document.getElementById("fNotes").value.trim(),progress,persons:[...modalPersons],comments:[],subtasks:[...modalSubtasks]});
+  const dep=parseInt(document.getElementById("fDep")?.value)||0;
+  if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;if(!modalSubtasks.length)t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();if(!modalSubtasks.length)t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];t.dep=dep||0;}}
+  else tasks.push({id:nextId++,task,group:document.getElementById("fGroup").value,status:document.getElementById("fStatus").value,start,end,assigned:document.getElementById("fAsgn").value.trim(),notes:document.getElementById("fNotes").value.trim(),progress,persons:[...modalPersons],comments:[],subtasks:[...modalSubtasks],dep:dep||0});
   save();closeModal("taskModal");render();
 }
 
 // ── GROUP MODAL ───────────────────────────────────────────────────────────────
+let msTeamsList=[];
+
 function openGroupModal(key){
   selCol=key?dark()?getG(key).cd:getG(key).cl:"#4dd9a0";
   document.getElementById("swRow").innerHTML=SWATCHES.map(c=>`<div class="sw${selCol===c?" active":""}" style="background:${c}" onclick="selColor('${c}')"></div>`).join("");
   document.getElementById("gCC").value=selCol;
-  if(key){document.getElementById("grpMdTit").textContent="Gruppe bearbeiten";document.getElementById("gEKey").value=key;document.getElementById("gName").value=getG(key).name;document.getElementById("gKey").value=getG(key).abbr||getG(key).key.slice(0,4);document.getElementById("gDelBtn").style.display="";}
+  const g=key?getG(key):null;
+  if(key){document.getElementById("grpMdTit").textContent="Gruppe bearbeiten";document.getElementById("gEKey").value=key;document.getElementById("gName").value=g.name;document.getElementById("gKey").value=g.abbr||g.key.slice(0,4);document.getElementById("gDelBtn").style.display="";}
   else{document.getElementById("grpMdTit").textContent="Neue Gruppe";document.getElementById("gEKey").value="";document.getElementById("gName").value="";document.getElementById("gKey").value="";document.getElementById("gDelBtn").style.display="none";}
   document.getElementById("groupModal").classList.add("open");
   document.getElementById("gName").focus();
+  loadMsTeamsForModal(key&&g?g.teamLinks||[]:[]);
 }
+
+async function loadMsTeamsForModal(selectedIds){
+  const wrap=document.getElementById("gTeamsList");
+  const loading=document.getElementById("gTeamsLoading");
+  if(!wrap)return;
+  if(!msalAccount){if(loading)loading.textContent="Anmeldung erforderlich.";return;}
+  if(loading)loading.textContent="Teams werden geladen…";
+  wrap.innerHTML="";
+  if(!msTeamsList.length){
+    try{
+      const token=await getToken();
+      const res=await fetch(`${GRAPH_BASE}/me/joinedTeams`,{headers:{Authorization:`Bearer ${token}`}});
+      const data=await res.json();
+      msTeamsList=data.value||[];
+    }catch(e){if(loading)loading.textContent="Fehler beim Laden.";return;}
+  }
+  if(loading)loading.textContent="";
+  wrap.innerHTML=msTeamsList.map(t=>{
+    const sel=(selectedIds||[]).includes(t.id);
+    return`<div onclick="toggleTeamLink('${t.id}')" data-mstid="${t.id}" class="team-link-chip${sel?" active":""}" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1.5px solid ${sel?"var(--accent)":"var(--border2)"};background:${sel?"var(--accent)22":"transparent"};color:${sel?"var(--accent)":"var(--muted)"};transition:all .12s;font-weight:${sel?"600":"400"}">${sel?"✓ ":""}${t.displayName}</div>`;
+  }).join("");
+}
+
+function toggleTeamLink(tid){
+  const el=document.querySelector(`[data-mstid="${tid}"]`);
+  if(!el)return;
+  const isOn=el.classList.contains("active");
+  if(isOn){el.classList.remove("active");el.style.border="1.5px solid var(--border2)";el.style.background="transparent";el.style.color="var(--muted)";el.style.fontWeight="400";el.innerHTML=el.innerHTML.replace("✓ ","");}
+  else{el.classList.add("active");el.style.border="1.5px solid var(--accent)";el.style.background="var(--accent)22";el.style.color="var(--accent)";el.style.fontWeight="600";el.innerHTML="✓ "+el.innerHTML;}
+}
+
+function getSelectedTeamLinks(){
+  return [...document.querySelectorAll("#gTeamsList [data-msrid],.team-link-chip.active")].map(el=>el.dataset.msrid||el.dataset.mstid).filter(Boolean);
+}
+
 function selColor(c){selCol=c;document.getElementById("gCC").value=c;document.querySelectorAll(".sw").forEach(s=>s.classList.toggle("active",s.style.background===c||s.style.backgroundColor===c));}
+
 function saveGroup(){
   const name=document.getElementById("gName").value.trim();if(!name){alert("Name eingeben.");return;}
   const key=document.getElementById("gEKey").value;
   const abbr=document.getElementById("gKey").value.trim().toUpperCase().slice(0,5)||undefined;
-  if(key){const g=groups.find(g=>g.key===key);if(g){g.name=name;g.cd=selCol;g.cl=selCol;if(abbr)g.abbr=abbr;else delete g.abbr;}}
-  else{const nk=(document.getElementById("gKey").value.trim().toUpperCase().replace(/\s+/g,"_"))||name.toUpperCase().replace(/\s+/g,"_").slice(0,12);if(groups.find(g=>g.key===nk)){alert("Kürzel bereits vorhanden.");return;}groups.push({key:nk,name,cd:selCol,cl:selCol,abbr});}
+  const teamLinks=getSelectedTeamLinks();
+  if(key){const g=groups.find(g=>g.key===key);if(g){g.name=name;g.cd=selCol;g.cl=selCol;if(abbr)g.abbr=abbr;else delete g.abbr;g.teamLinks=teamLinks;}}
+  else{const nk=(document.getElementById("gKey").value.trim().toUpperCase().replace(/\s+/g,"_"))||name.toUpperCase().replace(/\s+/g,"_").slice(0,12);if(groups.find(g=>g.key===nk)){alert("Kürzel bereits vorhanden.");return;}groups.push({key:nk,name,cd:selCol,cl:selCol,abbr,teamLinks});}
   save();closeModal("groupModal");render();
   if(pendingGroupCallback){const cb=pendingGroupCallback;pendingGroupCallback=null;setTimeout(cb,50);}
+  // Sync members from linked Teams in background
+  if(teamLinks.length)syncTeamMembers(teamLinks);
 }
+
 function deleteGroup(){
   const key=document.getElementById("gEKey").value;if(!key)return;
   const n=tasks.filter(t=>t.group===key).length;
   if(n>0&&!confirm(`${n} Aufgabe(n) in dieser Gruppe. Trotzdem löschen?`))return;
   groups=groups.filter(g=>g.key!==key);save();closeModal("groupModal");render();
 }
-
 // ── TITLE EDIT ────────────────────────────────────────────────────────────────
 function startEditTitle(){const d=document.getElementById("titleDisplay"),i=document.getElementById("titleInput");d.style.display="none";i.style.display="";i.value=ptitle;i.focus();i.select();}
 function endEditTitle(){const i=document.getElementById("titleInput"),d=document.getElementById("titleDisplay");ptitle=i.value.trim()||ptitle;i.style.display="none";d.style.display="";renderTitle();save();}
@@ -1654,6 +1977,40 @@ async function doExportPDF(){
   closeModal("pdfModal");
 }
 
+function pdfTaskRow(t,c,color,RH,SRH,totalW,lw,bdr,bdr2,surf,mut){
+  const{start:tStart,end:tEnd}=getTaskDates(t);
+  const done=t.status==="Erledigt"||getEffectiveStatus(t)==="Erledigt";
+  const isMS=tStart===tEnd,op=done?.45:1;
+  const x=xDateP(pd(tStart),c),w2=Math.max(xDateP(ad(pd(tEnd),1),c)-x,4);
+  let h=`<div style="display:flex;height:${RH}px;border-bottom:1px solid ${bdr}">`;
+  h+=`<div style="width:${lw}px;min-width:${lw}px;padding:0 12px;display:flex;align-items:center;gap:6px;border-right:1px solid ${bdr2}">`;
+  h+=`<div style="width:6px;height:6px;border-radius:2px;background:${color};flex-shrink:0"></div>`;
+  h+=`<span style="font-size:10px;${done?"text-decoration:line-through;opacity:.5":""}overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(t.task)}</span>`;
+  if(t.assigned)h+=`<span style="font-size:8px;color:${mut};margin-left:auto;flex-shrink:0;background:${surf};border:1px solid ${bdr2};padding:1px 4px;border-radius:2px">${esc(t.assigned)}</span>`;
+  h+=`</div>`;
+  h+=`<div style="flex:1;position:relative;height:${RH}px">`;
+  if(isMS)h+=`<div style="position:absolute;width:11px;height:11px;transform:rotate(45deg);border-radius:2px;background:${color};opacity:${op};left:${x-5}px;top:${(RH-11)/2}px"></div>`;
+  else h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:16px;top:${(RH-16)/2}px;background:${color};opacity:${op};border-radius:3px"></div>`;
+  h+=`</div></div>`;
+  // Subtasks (only in interactive/planning mode and if not collapsed)
+  if(interactiveMode&&t.subtasks&&t.subtasks.length&&!collSub[t.id]){
+    t.subtasks.forEach(s=>{
+      const sx=xDateP(pd(s.start),c),sw2=Math.max(xDateP(ad(pd(s.end),1),c)-sx,4);
+      const sdone=s.status==="Erledigt",sisMS=s.start===s.end;
+      h+=`<div style="display:flex;height:${SRH}px;border-bottom:1px solid ${bdr};background:${color}08">`;
+      h+=`<div style="width:${lw}px;min-width:${lw}px;padding:0 12px 0 24px;display:flex;align-items:center;gap:5px;border-right:1px solid ${bdr2}">`;
+      h+=`<div style="width:5px;height:5px;border-radius:50%;background:${color};opacity:.6;flex-shrink:0"></div>`;
+      h+=`<span style="font-size:9px;color:${mut};${sdone?"text-decoration:line-through;opacity:.5":""}overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(s.task)}</span>`;
+      h+=`</div>`;
+      h+=`<div style="flex:1;position:relative;height:${SRH}px">`;
+      if(sisMS)h+=`<div style="position:absolute;width:8px;height:8px;transform:rotate(45deg);border-radius:1px;background:${color};opacity:.7;left:${sx-4}px;top:${(SRH-8)/2}px"></div>`;
+      else h+=`<div style="position:absolute;left:${sx}px;width:${sw2}px;height:12px;top:${(SRH-12)/2}px;background:${color};opacity:.65;border-radius:2px"></div>`;
+      h+=`</div></div>`;
+    });
+  }
+  return h;
+}
+
 function buildColsZ(v,minD,maxD,z){
   const res=[];
   const w=k=>Math.round(BW[k]*z);
@@ -1759,31 +2116,27 @@ function buildPrintHTML(c,totalW,RH,GH,HDR,fromStr,toStr,lw){
   }
   h+=`</div>`;
 
-  // Groups + tasks
-  const usedGrps=[...new Set(tasks.map(t=>t.group))];
-  usedGrps.forEach(gk=>{
-    const g=getG(gk),color=g.cl||g.cd||"#0a4738"; // always light color for PDF
-    h+=`<div style="display:flex;height:${GH}px;border-bottom:1px solid ${bdr}">`;
-    h+=`<div style="width:${lw}px;min-width:${lw}px;padding:0 10px;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:${color};background:${color}18;border-right:1px solid ${bdr2}">`;
-    h+=`<div style="width:6px;height:6px;border-radius:1px;background:${color}"></div>${esc(g.name)}</div>`;
-    h+=`<div style="width:${totalW}px;height:${GH}px;background:${color}12;position:relative"></div></div>`;
-
-    tasks.filter(t=>t.group===gk).forEach(t=>{
-      const done=t.status==="Erledigt",isMS=t.start===t.end,op=done?.45:1;
-      const x=xDateP(pd(t.start),c),w2=Math.max(xDateP(ad(pd(t.end),1),c)-x,4);
-      h+=`<div style="display:flex;height:${RH}px;border-bottom:1px solid ${bdr}">`;
-      h+=`<div style="width:${lw}px;min-width:${lw}px;padding:0 12px;display:flex;align-items:center;gap:6px;border-right:1px solid ${bdr2}">`;
-      const dotCol=color;
-      h+=`<div style="width:6px;height:6px;border-radius:2px;background:${dotCol};flex-shrink:0"></div>`;
-      h+=`<span style="font-size:10px;${done?"text-decoration:line-through;opacity:.5":""}overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(t.task)}</span>`;
-      if(t.assigned)h+=`<span style="font-size:8px;color:${mut};margin-left:auto;flex-shrink:0;background:${surf};border:1px solid ${bdr2};padding:1px 4px;border-radius:2px">${esc(t.assigned)}</span>`;
-      h+=`</div>`;
-      h+=`<div style="flex:1;position:relative;height:${RH}px">`;
-      if(isMS)h+=`<div style="position:absolute;width:11px;height:11px;transform:rotate(45deg);border-radius:2px;background:${color};opacity:${op};left:${x-5}px;top:${(RH-11)/2}px"></div>`;
-      else h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:16px;top:${(RH-16)/2}px;background:${color};opacity:${op};border-radius:3px"></div>`;
-      h+=`</div></div>`;
+  // Groups + tasks — respects current mode (grouped/flat), sorting, subtasks
+  const SRH=20; // subtask row height in PDF
+  if(groupedMode){
+    const visGrps=[...new Set(flatSort(visible()).map(t=>t.group))];
+    // Use group order from groups array
+    groups.filter(g=>visGrps.includes(g.key)).forEach(gk_obj=>{
+      const gk=gk_obj.key;
+      const g=getG(gk),color=g.cl||g.cd||"#0a4738";
+      const grpTasks=flatSort(visible().filter(t=>t.group===gk));
+      h+=`<div style="display:flex;height:${GH}px;border-bottom:1px solid ${bdr}">`;
+      h+=`<div style="width:${lw}px;min-width:${lw}px;padding:0 10px;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:${color};background:${color}18;border-right:1px solid ${bdr2}">`;
+      h+=`<div style="width:6px;height:6px;border-radius:1px;background:${color}"></div>${esc(g.name)}</div>`;
+      h+=`<div style="width:${totalW}px;height:${GH}px;background:${color}12;position:relative"></div></div>`;
+      grpTasks.forEach(t=>{ h+=pdfTaskRow(t,c,color,RH,SRH,totalW,lw,bdr,bdr2,surf,mut); });
     });
-  });
+  }else{
+    flatSort(visible()).forEach(t=>{
+      const g=getG(t.group),color=g.cl||g.cd||"#0a4738";
+      h+=pdfTaskRow(t,c,color,RH,SRH,totalW,lw,bdr,bdr2,surf,mut);
+    });
+  }
 
   // Legend bar at bottom
   h+=`<div style="display:flex;align-items:center;gap:14px;padding:8px 12px;border-top:1px solid ${bdr2};margin-top:2px;font-size:8px;color:${mut}">`;
@@ -1867,28 +2220,6 @@ function assignSubTeam(teamName){
   else{team.members.forEach(m=>{if(!modalSubPersons.includes(m))modalSubPersons.push(m);});}
   renderSubPersonChips(modalSubPersons);
 }
-function addSubComment(){
-  const parentId=document.getElementById("subParentId").value;
-  const idx=parseInt(document.getElementById("subIdx").value);
-  const inp=document.getElementById("subCommentInp");
-  if(!inp||!inp.value.trim()||parentId==="__modal__")return;
-  const t=tasks.find(t=>t.id===parseInt(parentId));if(!t||!t.subtasks)return;
-  const s=t.subtasks[idx];if(!s)return;
-  if(!s.comments)s.comments=[];
-  const now=new Date();
-  s.comments.push({text:inp.value.trim(),author:"",date:`${now.getDate().toString().padStart(2,"0")}.${(now.getMonth()+1).toString().padStart(2,"0")}.${now.getFullYear()}`});
-  inp.value="";save();
-  renderSubComments(s.comments);
-}
-function renderSubComments(comments){
-  const wrap=document.getElementById("subCommentsList");if(!wrap)return;
-  wrap.innerHTML=(comments||[]).map((c,i)=>`
-    <div class="comment-item">
-      <div class="comment-meta">${esc(c.author||"–")} · ${c.date||""}</div>
-      <div class="comment-text">${esc(c.text)}</div>
-    </div>`).join("");
-}
-
 function renderSubtaskList(){
   const wrap=document.getElementById("subtaskList");if(!wrap)return;
   const rows=modalSubtasks.map((s,i)=>{
@@ -1951,6 +2282,31 @@ function removeSubtaskRow(i){
   modalSubtasks.splice(i,1);renderSubtaskList();updateParentDatesFromSubs();
 }
 
+function populateSubDep(parentId,curIdx,curVal){
+  const sel=document.getElementById("subDep");if(!sel)return;
+  const t=tasks.find(t=>t.id===parentId);
+  let html=`<option value="">– Keine –</option>`;
+  // Other subtasks of same parent
+  if(t&&t.subtasks&&t.subtasks.length){
+    html+=`<optgroup label="Unteraufgaben dieser Aufgabe">`;
+    t.subtasks.forEach((s,i)=>{
+      if(i===curIdx)return;
+      html+=`<option value="sub:${parentId}:${i}">${esc(s.task)}</option>`;
+    });
+    html+=`</optgroup>`;
+  }
+  // All tasks grouped
+  groups.forEach(g=>{
+    const grpTasks=tasks.filter(tt=>tt.group===g.key);
+    if(!grpTasks.length)return;
+    html+=`<optgroup label="${esc(g.name)}">`;
+    grpTasks.forEach(tt=>{ html+=`<option value="task:${tt.id}">${esc(tt.task)}</option>`; });
+    html+=`</optgroup>`;
+  });
+  sel.innerHTML=html;
+  sel.value=curVal||"";
+}
+
 function saveSubtask(){
   const task=document.getElementById("subTask").value.trim();
   const start=document.getElementById("subStart").value;
@@ -1959,7 +2315,7 @@ function saveSubtask(){
   if(pd(end)<pd(start)){alert("Enddatum muss nach Startdatum liegen.");return;}
   const parentId=document.getElementById("subParentId").value;
   const idx=document.getElementById("subIdx").value;
-  const sub={task,start,end,status:document.getElementById("subStatus").value,assigned:document.getElementById("subAsgn").value.trim(),notes:document.getElementById("subNotes").value.trim(),persons:[...modalSubPersons]};
+  const sub={task,start,end,status:document.getElementById("subStatus").value,assigned:document.getElementById("subAsgn").value.trim(),notes:document.getElementById("subNotes").value.trim(),persons:[...modalSubPersons],dep:document.getElementById("subDep")?.value||""};
   if(parentId==="__modal__"){
     if(idx==="")modalSubtasks.push(sub);
     else modalSubtasks[parseInt(idx)]=sub;
@@ -1998,8 +2354,8 @@ function openSubModal(parentId,idx){
     document.getElementById("subAsgn").value="";
     document.getElementById("subNotes").value="";
     document.getElementById("subDelBtn").style.display="none";
-    document.getElementById("subCommentsSection").style.display="none";
     modalSubPersons=[];renderSubPersonChips([]);
+    populateSubDep(parentId,-1,"");
     document.getElementById("subModal").classList.add("open");
     document.getElementById("subTask").focus();
     return;
@@ -2016,13 +2372,8 @@ function openSubModal(parentId,idx){
   document.getElementById("subAsgn").value=s.assigned||"";
   document.getElementById("subNotes").value=s.notes||"";
   document.getElementById("subDelBtn").style.display="";
-  // Comments
-  const hasComments=s.comments&&s.comments.length>0;
-  document.getElementById("subCommentsSection").style.display=hasComments?"":"block";
-  if(hasComments)renderSubComments(s.comments);
-  else document.getElementById("subCommentsSection").style.display="block";
-  document.getElementById("subCommentInp").value="";
   modalSubPersons=[...(s.persons||[])];renderSubPersonChips(modalSubPersons);
+  populateSubDep(parentId,idx,s.dep||"");
   document.getElementById("subModal").classList.add("open");
   document.getElementById("subTask").focus();
 }
@@ -2136,8 +2487,7 @@ function addPerson(){
   const name=document.getElementById("newPersonName").value.trim();
   if(!name){alert("Bitte Namen eingeben.");return;}
   if(PERSONS.find(p=>p.name===name)){alert("Person bereits vorhanden.");return;}
-  const color=document.getElementById("newPersonColor").value;
-  PERSONS.push({name,color});
+  PERSONS.push({name,color:randomPersonColor()});
   document.getElementById("newPersonName").value="";
   save();renderPersonsList();renderTeamsList();updateFilterOpts();
 }
@@ -2359,7 +2709,7 @@ document.getElementById("ganttScroll").addEventListener("click",e=>{
 
 // ── KEYBOARD ──────────────────────────────────────────────────────────────────
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeModal("taskModal");closeModal("groupModal");closeModal("pdfModal");closeModal("subModal");closeDetail();}
+  if(e.key==="Escape"){closeModal("taskModal");closeModal("groupModal");closeModal("pdfModal");closeModal("subModal");closeModal("plannerModal");closeDetail();}
   if(e.key==="n"&&!["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName))openTaskModal();
   if((e.key==="+"||e.key==="=")&&(e.ctrlKey||e.metaKey)){e.preventDefault();dz(.25);}
   if(e.key==="-"&&(e.ctrlKey||e.metaKey)){e.preventDefault();dz(-.25);}
@@ -2384,6 +2734,369 @@ document.getElementById("ganttScroll").addEventListener("touchmove",e=>{if(e.tou
 window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",()=>render());
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+
+// ── PLANNER SYNC ─────────────────────────────────────────────────────────────
+// Settings stored in localStorage + SharePoint data
+
+function loadPlannerSettings(){
+  // Primary source: main save data (already loaded in load())
+  // Fallback: dedicated planner key (for migration or override)
+  try{
+    const s=localStorage.getItem("ac26_planner");
+    if(s){const d=JSON.parse(s);plannerSettings={...plannerSettings,...d};}
+  }catch{}
+}
+function savePlannerSettings(){
+  const gid = document.getElementById("plGroupId").value.trim();
+  const pid = document.getElementById("plPlanId").value.trim();
+  plannerSettings.groupId = gid;
+  plannerSettings.planId = pid;
+  localStorage.setItem("ac26_planner", JSON.stringify(plannerSettings));
+  save();
+  closeModal("plannerModal");
+  updatePlannerBtn();
+  alert("Planner-Einstellungen gespeichert.");
+}
+function clearPlanId(){
+  plannerSettings.planId = "";
+  document.getElementById("plPlanId").value = "";
+  localStorage.setItem("ac26_planner", JSON.stringify(plannerSettings));
+}
+function updatePlannerBtn(){
+  const btn = document.getElementById("plannerBtn");
+  if(btn && msalAccount && canEdit()) btn.style.display = "";
+  else if(btn) btn.style.display = "none";
+}
+
+// Status mapping
+const STATUS_TO_PLANNER = {"Offen": 0, "In Arbeit": 1, "Erledigt": 2};
+const PLANNER_TO_STATUS = {0: "Offen", 1: "In Arbeit", 2: "Erledigt"};
+// percentComplete values Planner accepts: 0=notStarted, 50=inProgress, 100=completed
+const STATUS_TO_PCT = {"Offen": 0, "In Arbeit": 50, "Erledigt": 100};
+const PCT_TO_STATUS = {0: "Offen", 50: "In Arbeit", 100: "Erledigt"};
+
+function switchPlTab(tab){
+  const tabs = {cfg:"plTabCfg", exp:"plTabExp", imp:"plTabImp"};
+  const btns = {cfg:"plTabCfgBtn", exp:"plTabExpBtn", imp:"plTabImpBtn"};
+  Object.keys(tabs).forEach(t=>{
+    document.getElementById(tabs[t]).style.display = t===tab?"":"none";
+    const btn = document.getElementById(btns[t]);
+    if(btn){
+      btn.style.borderBottomColor = t===tab?"var(--accent)":"transparent";
+      btn.style.color = t===tab?"var(--text)":"var(--muted)";
+      btn.style.fontWeight = t===tab?"600":"400";
+    }
+  });
+  if(tab==="exp") buildExportPreview();
+  if(tab==="imp"){
+    document.getElementById("plImportPreview").innerHTML = '<span style="opacity:.5">← Klicke „Vorschau laden" um Planner-Status zu lesen</span>';
+    document.getElementById("plImportBtn").style.display = "none";
+  }
+}
+
+function openPlannerModal(){
+  loadPlannerSettings();
+  document.getElementById("plGroupId").value = plannerSettings.groupId || "";
+  document.getElementById("plPlanId").value = plannerSettings.planId || "";
+  switchPlTab("cfg");
+  document.getElementById("plannerModal").classList.add("open");
+}
+
+function buildExportPreview(){
+  const preview = document.getElementById("plExportPreview");
+  const synced = tasks.filter(t=>t.plannerTaskId).length;
+  const unsynced = tasks.filter(t=>!t.plannerTaskId).length;
+  const grpCount = groups.length;
+  const planId = plannerSettings.planId;
+  preview.innerHTML =
+    `<strong>Plan:</strong> ${planId ? `ID endet auf …${planId.slice(-8)}` : "Wird neu erstellt"}<br>`+
+    `<strong>Gruppe (Group-ID):</strong> ${plannerSettings.groupId ? `…${plannerSettings.groupId.slice(-8)}` : '<span style="color:var(--overdue)">⚠ Noch nicht konfiguriert (Einstellungen)</span>'}<br>`+
+    `<strong>Buckets:</strong> ${grpCount} (je eine Gruppe)<br>`+
+    `<strong>Aufgaben gesamt:</strong> ${tasks.length}<br>`+
+    `<strong>Bereits im Planner:</strong> ${synced} (werden aktualisiert)<br>`+
+    `<strong>Neu anzulegen:</strong> ${unsynced}<br>`+
+    `<br><span style="opacity:.7">Unteraufgaben werden als eigene Planner-Tasks im selben Bucket angelegt. Fälligkeitsdatum = Endtermin im Zeitplan.</span>`;
+}
+
+// ── GRAPH API HELPERS ─────────────────────────────────────────────────────────
+async function graphReq(method, path, body, etag){
+  const token = await getToken();
+  if(!token) throw new Error("Kein Token");
+  const headers = {Authorization:`Bearer ${token}`, "Content-Type":"application/json"};
+  if(etag) headers["If-Match"] = etag;
+  const opts = {method, headers};
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, opts);
+  if(!res.ok){
+    const errTxt = await res.text().catch(()=>"");
+    throw new Error(`Graph ${method} ${path} → ${res.status}: ${errTxt}`);
+  }
+  if(res.status===204) return null;
+  return res.json();
+}
+
+// ── EXPORT → PLANNER ─────────────────────────────────────────────────────────
+function plLog(msg, color){
+  const log = document.getElementById("plExportLog");
+  if(!log) return;
+  const line = document.createElement("div");
+  line.style.color = color || "var(--muted)";
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function doExportToPlanner(){
+  if(!plannerSettings.groupId){
+    alert("Bitte zuerst eine Microsoft 365 Gruppe (Group-ID) in den Einstellungen eintragen.");
+    switchPlTab("cfg"); return;
+  }
+  const exportBtn = document.getElementById("plExportBtn");
+  const progressWrap = document.getElementById("plExportProgress");
+  const progressTxt = document.getElementById("plExportProgressTxt");
+  const logWrap = document.getElementById("plExportLog");
+  exportBtn.style.display = "none";
+  progressWrap.style.display = "";
+  logWrap.style.display = "";
+  logWrap.innerHTML = "";
+
+  try{
+    // 1. Get or create plan
+    let planId = plannerSettings.planId;
+    if(!planId){
+      progressTxt.textContent = "Erstelle neuen Planner-Plan…";
+      plLog("▶ Lege neuen Plan an…");
+      const plan = await graphReq("POST","/planner/plans",{
+        owner: plannerSettings.groupId,
+        title: ptitle
+      });
+      planId = plan.id;
+      plannerSettings.planId = planId;
+      localStorage.setItem("ac26_planner", JSON.stringify(plannerSettings));
+      document.getElementById("plPlanId").value = planId;
+      plLog(`✓ Plan erstellt: …${planId.slice(-8)}`, "var(--accent)");
+    } else {
+      plLog(`✓ Nutze vorhandenen Plan: …${planId.slice(-8)}`, "var(--accent)");
+    }
+
+    // 2. Load existing buckets
+    progressTxt.textContent = "Lade Buckets…";
+    plLog("▶ Lade bestehende Buckets…");
+    const bucketsRes = await graphReq("GET",`/planner/plans/${planId}/buckets`);
+    const existingBuckets = bucketsRes.value || [];
+    const bucketMap = {}; // groupKey → bucketId
+
+    // Match buckets by name
+    existingBuckets.forEach(b=>{
+      const grp = groups.find(g=>g.name===b.name);
+      if(grp) bucketMap[grp.key] = b.id;
+    });
+
+    // 3. Create missing buckets
+    progressTxt.textContent = "Erstelle Buckets…";
+    for(let i=0; i<groups.length; i++){
+      const g = groups[i];
+      if(!bucketMap[g.key]){
+        plLog(`  + Bucket: ${g.name}`);
+        const bucket = await graphReq("POST","/planner/buckets",{
+          planId, name: g.name, orderHint: " !"
+        });
+        bucketMap[g.key] = bucket.id;
+        plLog(`  ✓ Bucket erstellt: ${g.name}`, "var(--accent)");
+      } else {
+        plLog(`  ✓ Bucket vorhanden: ${g.name}`, "var(--accent)");
+      }
+    }
+
+    // 4. Load existing tasks for plan
+    progressTxt.textContent = "Lade vorhandene Tasks…";
+    plLog("▶ Lade bestehende Planner-Tasks…");
+    const plannerTasksRes = await graphReq("GET",`/planner/plans/${planId}/tasks`);
+    const plannerTasks = plannerTasksRes.value || [];
+    // Build map: plannerTaskId → planner task
+    const plannerTaskMap = {};
+    plannerTasks.forEach(pt=>{ plannerTaskMap[pt.id] = pt; });
+
+    // 5. Export all tasks (and subtasks)
+    let created=0, updated=0, failed=0;
+    const allExportItems = [];
+    tasks.forEach(t=>{
+      allExportItems.push({item:t, bucketKey:t.group, isSubtask:false, parentTask:null});
+      if(t.subtasks&&t.subtasks.length){
+        t.subtasks.forEach((s,si)=>{
+          allExportItems.push({item:s, bucketKey:t.group, isSubtask:true, parentTask:t, subIdx:si});
+        });
+      }
+    });
+
+    for(let i=0; i<allExportItems.length; i++){
+      const {item, bucketKey, isSubtask, parentTask, subIdx} = allExportItems[i];
+      const bucketId = bucketMap[bucketKey];
+      if(!bucketId){ failed++; continue; }
+      const pct = STATUS_TO_PCT[item.status||"Offen"] ?? 0;
+      const title = isSubtask ? `[${esc(parentTask.task)}] ${item.task}` : item.task;
+      // Due date: end of day in ISO format
+      const dueDate = item.end ? new Date(item.end+"T23:59:59Z").toISOString() : null;
+
+      progressTxt.textContent = `Exportiere ${i+1}/${allExportItems.length}: ${item.task.slice(0,30)}`;
+
+      const existingPlannerTaskId = item.plannerTaskId;
+      const existingPlannerTask = existingPlannerTaskId ? plannerTaskMap[existingPlannerTaskId] : null;
+
+      if(existingPlannerTask){
+        // PATCH existing task
+        try{
+          const etag = existingPlannerTask["@odata.etag"];
+          await graphReq("PATCH",`/planner/tasks/${existingPlannerTaskId}`,{
+            percentComplete: pct,
+            dueDateTime: dueDate,
+            title
+          }, etag);
+          updated++;
+          plLog(`  ↑ Aktualisiert: ${item.task}`, "var(--muted)");
+        }catch(e){
+          plLog(`  ✗ Fehler beim Aktualisieren: ${item.task}: ${e.message}`, "var(--overdue)");
+          failed++;
+        }
+      } else {
+        // POST new task
+        try{
+          const newTask = await graphReq("POST","/planner/tasks",{
+            planId, bucketId, title, percentComplete: pct,
+            dueDateTime: dueDate,
+            assignments: buildAssignments(item)
+          });
+          // Store planner task id back in item
+          item.plannerTaskId = newTask.id;
+          // If this is a subtask, store on the subtask object in tasks[]
+          if(isSubtask && parentTask){
+            const parent = tasks.find(tt=>tt.id===parentTask.id);
+            if(parent&&parent.subtasks&&parent.subtasks[subIdx]) parent.subtasks[subIdx].plannerTaskId = newTask.id;
+          } else if(!isSubtask){
+            const parent = tasks.find(tt=>tt.id===item.id);
+            if(parent) parent.plannerTaskId = newTask.id;
+          }
+          created++;
+          plLog(`  + Erstellt: ${item.task}`, "var(--accent)");
+        }catch(e){
+          plLog(`  ✗ Fehler beim Erstellen: ${item.task}: ${e.message}`, "var(--overdue)");
+          failed++;
+        }
+      }
+    }
+
+    // 6. Save updated plannerTaskIds
+    save();
+
+    plLog(``, "");
+    plLog(`✓ Export abgeschlossen: ${created} erstellt, ${updated} aktualisiert, ${failed} Fehler.`, failed>0?"var(--today)":"var(--accent)");
+    progressTxt.textContent = `Fertig: ${created} erstellt, ${updated} aktualisiert${failed>0?`, ${failed} Fehler`:""}`;
+
+  }catch(e){
+    plLog(`✗ Fehler: ${e.message}`, "var(--overdue)");
+    progressTxt.textContent = "Fehler aufgetreten";
+    console.error("Planner export error:", e);
+  }
+  exportBtn.style.display = "";
+  progressWrap.style.display = "none";
+}
+
+function buildAssignments(item){
+  // Assign persons who have an email (from MSAL sync)
+  const assignments = {};
+  (item.persons||[]).forEach(name=>{
+    const p = PERSONS.find(pp=>pp.name===name);
+    if(p&&p.email){
+      // Need userId, not email — we store it if available
+      if(p.userId) assignments[p.userId] = {"@odata.type":"#microsoft.graph.plannerAssignment","orderHint":" !"};
+    }
+  });
+  return assignments;
+}
+
+// ── IMPORT ← PLANNER ─────────────────────────────────────────────────────────
+let _plannerImportData = null; // cached preview data
+
+async function previewImportFromPlanner(){
+  const planId = plannerSettings.planId;
+  if(!planId){ alert("Kein Plan konfiguriert. Bitte erst exportieren."); return; }
+  const previewBtn = document.getElementById("plPreviewBtn");
+  const progressWrap = document.getElementById("plImportProgress");
+  const progressTxt = document.getElementById("plImportProgressTxt");
+  const previewDiv = document.getElementById("plImportPreview");
+  const importBtn = document.getElementById("plImportBtn");
+  previewBtn.style.display = "none";
+  progressWrap.style.display = "";
+  progressTxt.textContent = "Lese Planner-Tasks…";
+  importBtn.style.display = "none";
+  _plannerImportData = null;
+
+  try{
+    const res = await graphReq("GET",`/planner/plans/${planId}/tasks`);
+    const plannerTasks = res.value || [];
+    // Match planner tasks to our tasks
+    const changes = [];
+    const allItems = [];
+    tasks.forEach(t=>{
+      allItems.push({item:t, label:t.task});
+      (t.subtasks||[]).forEach((s,si)=>{ allItems.push({item:s, label:`${t.task} > ${s.task}`}); });
+    });
+
+    plannerTasks.forEach(pt=>{
+      const newStatus = PCT_TO_STATUS[pt.percentComplete] ?? "Offen";
+      // Find matching local item by plannerTaskId
+      const found = allItems.find(a=>a.item.plannerTaskId===pt.id);
+      if(found){
+        const oldStatus = found.item.status || "Offen";
+        if(oldStatus !== newStatus){
+          changes.push({label:found.label, oldStatus, newStatus, plannerTask:pt, localItem:found.item});
+        }
+      }
+    });
+
+    _plannerImportData = {changes};
+    progressWrap.style.display = "none";
+    previewBtn.style.display = "";
+
+    if(changes.length===0){
+      previewDiv.innerHTML = `<span style="color:var(--accent)">✓ Alles aktuell – keine Status-Änderungen im Planner.</span>`;
+    } else {
+      let html = `<strong style="color:var(--text)">${changes.length} Status-Änderung${changes.length!==1?"en":""} gefunden:</strong><br><br>`;
+      changes.forEach(c=>{
+        const stColor = c.newStatus==="Erledigt"?"var(--accent)":c.newStatus==="In Arbeit"?"var(--today)":"var(--muted)";
+        html += `<div style="margin-bottom:4px"><span style="color:var(--text)">${esc(c.label)}</span><br>`;
+        html += `<span style="opacity:.6">${esc(c.oldStatus)}</span> → <span style="color:${stColor};font-weight:600">${esc(c.newStatus)}</span></div>`;
+      });
+      previewDiv.innerHTML = html;
+      importBtn.style.display = "";
+    }
+
+  }catch(e){
+    progressWrap.style.display = "none";
+    previewBtn.style.display = "";
+    previewDiv.innerHTML = `<span style="color:var(--overdue)">✗ Fehler: ${esc(e.message)}</span>`;
+    console.error("Planner import preview error:", e);
+  }
+}
+
+async function doImportFromPlanner(){
+  if(!_plannerImportData||!_plannerImportData.changes.length) return;
+  const {changes} = _plannerImportData;
+  let applied = 0;
+  changes.forEach(c=>{
+    c.localItem.status = c.newStatus;
+    applied++;
+  });
+  _plannerImportData = null;
+  save(); render();
+  document.getElementById("plImportPreview").innerHTML = `<span style="color:var(--accent)">✓ ${applied} Status${applied!==1?"änderungen":"änderung"} übernommen.</span>`;
+  document.getElementById("plImportBtn").style.display = "none";
+}
+
+loadPlannerSettings();
+
+// ── END PLANNER ───────────────────────────────────────────────────────────────
 
 render();
 document.body.classList.add("classic");
