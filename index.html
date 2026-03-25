@@ -3452,7 +3452,7 @@ async function checkPlannerPermissions(){
       {name:"Team.ReadBasic.All",ok:scp.includes("team.readbasic.all")||scp.includes("groupmember.read.all"),needed:"Teams-Mitglieder"},
     ];
     const allOk=checks.every(c=>c.ok);
-    box.innerHTML=checks.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="color:${c.ok?"var(--accent)":"var(--overdue)";font-weight:600}">${c.ok?"✓":"✗"}</span><span style="color:${c.ok?"var(--text)":"var(--overdue)"}">${c.name}</span><span style="color:var(--dim);font-size:9px">– ${c.needed}</span></div>`).join("");
+    box.innerHTML=checks.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="color:${c.ok?"var(--accent)":"var(--overdue)"};font-weight:600">${c.ok?"✓":"✗"}</span><span style="color:${c.ok?"var(--text)":"var(--overdue)"}">${c.name}</span><span style="color:var(--dim);font-size:9px">– ${c.needed}</span></div>`).join("");
     if(!allOk){
       const missing=checks.filter(c=>!c.ok).map(c=>c.name).join(", ");
       box.innerHTML+=`<div style="margin-top:10px;padding:8px;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.2);border-radius:5px;font-size:10px;line-height:1.7">
