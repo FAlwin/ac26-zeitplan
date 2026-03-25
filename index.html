@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v16</title>
+<title>Meilensteinplan · AC 2026 · v17</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -978,7 +978,7 @@ let interactiveMode=false,classicView="quarter";
 let coll={},selId=null,zoom=1,cols=[],ptitle="Meilensteinplan · AC 2026";
 let selCol="#4a9eff";
 let groupedMode=true; // true = grouped by team, false = flat sorted list
-let plannerSettings={groupId:"",planId:"",mode:"auto",autoSync:false}; // Microsoft Planner config
+let plannerSettings={groupId:"",planId:"",mode:"auto",autoSync:false,labelMap:{}}; // Microsoft Planner config
 const today=new Date();today.setHours(0,0,0,0);
 
 // ── MSAL / SHAREPOINT ────────────────────────────────────────────────────────
@@ -1199,19 +1199,82 @@ async function syncAllTeamMembersBtn(){
   const btn=document.getElementById("syncTeamsBtn");
   const status=document.getElementById("syncTeamsBtnStatus");
   if(btn){btn.disabled=true;btn.textContent="⏳ Sync…";}
-  if(status)status.textContent="Lade Teams-Mitglieder…";
+
+  function setStatus(msg,color){if(status){status.style.color=color||"var(--muted)";status.innerHTML=msg;}}
+  setStatus("Prüfe Token…");
+
   try{
-    // Alle beigetretenen Teams laden (nicht nur über teamLinks)
-    const token=await getToken();if(!token)throw new Error("Kein Token");
-    const res=await fetch(`${GRAPH_BASE}/me/joinedTeams`,{headers:{Authorization:`Bearer ${token}`}});
-    const data=await res.json();
-    const allTeamIds=(data.value||[]).map(t=>t.id);
-    if(!allTeamIds.length){if(status)status.textContent="Keine Teams gefunden.";return;}
-    await syncTeamMembers(allTeamIds);
-    if(status)status.textContent=`✓ ${PERSONS.length} Person${PERSONS.length!==1?"en":""} geladen (${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})})`;
-    renderPersonsList();updateFilterOpts();
+    const token=await getToken();
+    if(!token){
+      setStatus(`✗ Kein Token – bitte zuerst anmelden.<br><span style="font-size:9px">Der Login-Button im Banner verwenden.</span>`,"var(--overdue)");
+      if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
+      return;
+    }
+
+    // Decode token scopes for diagnosis
+    try{
+      const payload=JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+      const scp=(payload.scp||"").toLowerCase();
+      const hasTeams=scp.includes("team.readbasic.all")||scp.includes("groupmember.read.all")||scp.includes("group.read.all");
+      if(!hasTeams){
+        setStatus(`⚠ Scope <code>Team.ReadBasic.All</code> fehlt im Token.<br><span style="font-size:9px">Azure Portal → App-Registrierungen → AC26 → API-Berechtigungen → Team.ReadBasic.All (delegiert) + Admin-Zustimmung</span>`,"var(--today)");
+        if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
+        return;
+      }
+    }catch(te){/* token decode failed, proceed anyway */}
+
+    setStatus("Lade beigetretene Teams…");
+    const teamsRes=await fetch(`${GRAPH_BASE}/me/joinedTeams`,{headers:{Authorization:`Bearer ${token}`}});
+    if(!teamsRes.ok){
+      const errTxt=await teamsRes.text().catch(()=>"");
+      setStatus(`✗ /me/joinedTeams → HTTP ${teamsRes.status}<br><span style="font-size:9px">${esc(errTxt.slice(0,200))}</span><br><span style="font-size:9px">Wahrscheinlich fehlt <strong>Team.ReadBasic.All</strong> + Admin-Zustimmung im Azure Portal.</span>`,"var(--overdue)");
+      if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
+      return;
+    }
+    const teamsData=await teamsRes.json();
+    const allTeams=teamsData.value||[];
+    if(!allTeams.length){
+      setStatus(`ℹ Keine Teams gefunden. Dein Account ist in keinem Microsoft Team.`,"var(--today)");
+      if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
+      return;
+    }
+
+    setStatus(`${allTeams.length} Team${allTeams.length!==1?"s":""} gefunden – lade Mitglieder…`);
+    const allTeamIds=allTeams.map(t=>t.id);
+    const beforeCount=PERSONS.length;
+
+    // Per-team member fetch with individual error handling
+    let membersLoaded=0,teamErrors=0;
+    for(const tid of allTeamIds){
+      try{
+        const mRes=await fetch(`${GRAPH_BASE}/teams/${tid}/members`,{headers:{Authorization:`Bearer ${token}`}});
+        if(mRes.ok){
+          const d=await mRes.json();
+          (d.value||[]).forEach(m=>{
+            const email=(m.mail||m.userPrincipalName||"").toLowerCase();
+            if(m.displayName){
+              const existing=PERSONS.find(p=>p.name===m.displayName||(p.email&&p.email===email));
+              if(!existing){PERSONS.push({name:m.displayName,color:randomPersonColor(),email});membersLoaded++;}
+              else if(!existing.email&&email){existing.email=email;}
+            }
+          });
+        } else {
+          teamErrors++;
+          console.warn(`Team ${tid} members → HTTP ${mRes.status}`);
+        }
+      }catch(te){teamErrors++;console.warn("Team member fetch:",te);}
+    }
+
+    const newCount=PERSONS.length-beforeCount;
+    save();renderPersonsList();updateFilterOpts();
+    const timeStr=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+    let resultMsg=`✓ Sync abgeschlossen (${timeStr})<br>`;
+    resultMsg+=`${allTeams.length} Team${allTeams.length!==1?"s":""} · ${newCount} neue Person${newCount!==1?"en":""} hinzugefügt · ${PERSONS.length} gesamt`;
+    if(teamErrors>0) resultMsg+=`<br><span style="color:var(--today)">⚠ ${teamErrors} Team${teamErrors!==1?"s":""} nicht lesbar (403/fehlende Berechtigungen)</span>`;
+    setStatus(resultMsg,"var(--accent)");
+
   }catch(e){
-    if(status)status.textContent=`✗ Fehler: ${e.message}`;
+    setStatus(`✗ Fehler: ${esc(e.message)}<br><span style="font-size:9px">Details in der Browser-Konsole (F12)</span>`,"var(--overdue)");
     console.error("Teams sync:",e);
   }
   if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
@@ -2090,13 +2153,47 @@ function saveTask(){
   const task=document.getElementById("fTask").value.trim(),start=document.getElementById("fStart").value,end=document.getElementById("fEnd").value;
   if(!task||!start||!end){alert("Bitte Aufgabe, Start und Ende ausfüllen.");return;}
   if(pd(end)<pd(start)){alert("Enddatum muss nach Startdatum liegen.");return;}
+  // Dep-Konflikt prüfen
+  const depRawCheck=document.getElementById("fDep")?.value||"";
+  if(depRawCheck){
+    const depIdCheck=depRawCheck.startsWith("task:")?parseInt(depRawCheck.split(":")[1]):null;
+    const predCheck=depIdCheck&&tasks.find(p=>p.id===depIdCheck);
+    if(predCheck&&pd(start)<=pd(predCheck.end)){
+      alert(`Startdatum muss nach dem Ende von „${predCheck.task}" liegen (${fde(predCheck.end)}).\n\nBitte Startdatum auf ${fde(fmt(ad(pd(predCheck.end),1)))} oder später setzen.`);
+      return;
+    }
+  }
   const idS=document.getElementById("eid").value;
   const progress=parseInt(document.getElementById("fProgress").value)||0;
   const depRaw=document.getElementById("fDep")?.value||"";
   const dep=depRaw&&depRaw!=="0"?depRaw:"";
   if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;if(!modalSubtasks.length)t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();if(!modalSubtasks.length)t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];t.dep=dep;}}
   else tasks.push({id:nextId++,task,group:document.getElementById("fGroup").value,status:document.getElementById("fStatus").value,start,end,assigned:document.getElementById("fAsgn").value.trim(),notes:document.getElementById("fNotes").value.trim(),progress,persons:[...modalPersons],subtasks:[...modalSubtasks],dep});
+  // Sofort in richtige Position sortieren
+  reorderTasksByGroups();
+  sortTasksInGroups();
   save();closeModal("taskModal");render();
+}
+
+// Sortiert Aufgaben innerhalb ihrer Gruppen nach dem aktuellen sortBy-Kriterium
+function sortTasksInGroups(){
+  const stOrd={"Offen":0,"In Arbeit":1,"Erledigt":2};
+  const order=groups.map(g=>g.key);
+  tasks.sort((a,b)=>{
+    // Erst nach Gruppe
+    const ai=order.indexOf(a.group),bi=order.indexOf(b.group);
+    if(ai!==bi)return ai-bi;
+    // Dann nach aktuellem Sortierkriterium
+    let d=0;
+    switch(sortBy){
+      case"start_asc": d=pd(a.start)-pd(b.start);break;
+      case"status":    d=(stOrd[getEffectiveStatus(a)]||0)-(stOrd[getEffectiveStatus(b)]||0);break;
+      case"alpha_asc": d=(a.task||"").localeCompare(b.task||"","de");break;
+      case"alpha_desc":d=(b.task||"").localeCompare(a.task||"","de");break;
+    }
+    if(d!==0)return d;
+    return pd(a.start)-pd(b.start);
+  });
 }
 
 // ── GROUP MODAL ───────────────────────────────────────────────────────────────
@@ -3023,6 +3120,22 @@ document.addEventListener("mouseup",async e=>{
     // Normale Aufgabe verschieben
     const t=tasks.find(tt=>tt.id===drag.id);
     if(!t)return;
+
+    // Dep-Konflikt-Check: Vorgänger muss vor newStart enden
+    const conflict=checkDepConflict(t, newStart);
+    if(conflict.blocked){
+      await showConfirm(
+        "Verschieben nicht möglich",
+        conflict.msg,
+        `<div style="margin-top:8px;padding:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--today)">
+          💡 Verschiebe zuerst „${esc(conflict.pred.task)}" (endet ${fde(conflict.pred.end)}), dann kann diese Aufgabe folgen.
+        </div>`,
+        "Verstanden",false
+      );
+      render(); // Ghost cleanup
+      return;
+    }
+
     const successors=findSuccessors(t.id);
     let confirmMsg=`„${t.task}" um ${absDays} Tag${absDays!==1?"e":""} ${dir} verschieben?\n\nNeu: ${fde(newStart)} – ${fde(newEnd)}`;
     let extraHtml="";
@@ -3165,6 +3278,14 @@ async function silentSyncToPlanner(){
   if(!plannerSettings.planId||!msalAccount)return;
   try{
     const planId=plannerSettings.planId;
+    // Status-Bucket-Map aufbauen
+    const STATUS_BUCKET_NAMES={"Offen":"Geplant","In Arbeit":"In Arbeit","Erledigt":"Erledigt"};
+    const bucketsRes=await graphReq("GET",`/planner/plans/${planId}/buckets`);
+    const bucketByStatus={};
+    (bucketsRes.value||[]).forEach(b=>{
+      const statusKey=Object.entries(STATUS_BUCKET_NAMES).find(([_,name])=>name===b.name);
+      if(statusKey) bucketByStatus[statusKey[0]]=b.id;
+    });
     const ptRes=await graphReq("GET",`/planner/plans/${planId}/tasks`);
     const ptMap={};(ptRes.value||[]).forEach(pt=>ptMap[pt.id]=pt);
     const items=[];
@@ -3173,16 +3294,20 @@ async function silentSyncToPlanner(){
       (t.subtasks||[]).forEach((s,si)=>items.push({item:s,isSubtask:true,parentTask:t,subIdx:si}));
     });
     let changed=0;
-    for(const {item,isSubtask,parentTask,subIdx} of items){
+    for(const {item} of items){
       if(!item.plannerTaskId)continue;
       const existingPt=ptMap[item.plannerTaskId];
       if(!existingPt)continue;
       const pct=STATUS_TO_PCT[item.status||"Offen"]??0;
       const dueDate=item.end?new Date(item.end+"T23:59:59Z").toISOString():null;
       const startDate=item.start?new Date(item.start+"T00:00:00Z").toISOString():null;
-      if(existingPt.percentComplete!==pct||existingPt.dueDateTime!==dueDate||existingPt.startDateTime!==startDate){
+      const newBucketId=bucketByStatus[item.status||"Offen"];
+      const bucketChanged=newBucketId&&existingPt.bucketId!==newBucketId;
+      if(existingPt.percentComplete!==pct||existingPt.dueDateTime!==dueDate||existingPt.startDateTime!==startDate||bucketChanged){
         try{
-          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,{percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate},existingPt["@odata.etag"]);
+          const body={percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate};
+          if(bucketChanged) body.bucketId=newBucketId;
+          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,body,existingPt["@odata.etag"]);
           changed++;
         }catch(e){console.warn("Auto-sync patch:",e);}
       }
@@ -3311,20 +3436,41 @@ function openPlannerModal(){
 // ── PERMISSION CHECK ─────────────────────────────────────────────────────────
 async function checkPlannerPermissions(){
   const box=document.getElementById("plPermCheck");
-  box.innerHTML=`<span style="color:var(--muted)">Prüfe…</span>`;
+  box.innerHTML=`<span style="color:var(--muted)">Prüfe Token…</span>`;
   const token=await getPlannerToken();
-  if(!token){box.innerHTML=`<span style="color:var(--overdue)">✗ Kein Token – bitte anmelden</span>`;return;}
+  if(!token){
+    box.innerHTML=`<span style="color:var(--overdue)">✗ Kein Token – bitte zuerst anmelden</span>`;
+    return;
+  }
   try{
     const payload=JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
     const scp=(payload.scp||"").toLowerCase();
     const checks=[
-      {name:"Tasks.ReadWrite",ok:scp.includes("tasks.readwrite")},
-      {name:"Group.Read.All",ok:scp.includes("group.read.all")||scp.includes("group.readwrite.all")},
-      {name:"User.Read",ok:scp.includes("user.read")},
+      {name:"Tasks.ReadWrite",ok:scp.includes("tasks.readwrite"),needed:"Planner Aufgaben lesen/schreiben"},
+      {name:"Group.Read.All",ok:scp.includes("group.read.all")||scp.includes("group.readwrite.all"),needed:"Gruppen-Plan suchen"},
+      {name:"User.Read",ok:scp.includes("user.read"),needed:"Login-Profil"},
+      {name:"Team.ReadBasic.All",ok:scp.includes("team.readbasic.all")||scp.includes("groupmember.read.all"),needed:"Teams-Mitglieder"},
     ];
-    box.innerHTML=checks.map(c=>`<span style="color:${c.ok?"var(--accent)":"var(--overdue)"}">${c.ok?"✓":"✗"} ${c.name}</span>`).join("<br>");
-    if(!checks[0].ok){
-      box.innerHTML+=`<br><br><span style="color:var(--today)">⚠ Tasks.ReadWrite fehlt!<br>Azure Portal → App-Registrierungen → AC26 → API-Berechtigungen → „Tasks.ReadWrite" (delegiert) hinzufügen + Admin-Zustimmung erteilen.</span>`;
+    const allOk=checks.every(c=>c.ok);
+    box.innerHTML=checks.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="color:${c.ok?"var(--accent)":"var(--overdue)";font-weight:600}">${c.ok?"✓":"✗"}</span><span style="color:${c.ok?"var(--text)":"var(--overdue)"}">${c.name}</span><span style="color:var(--dim);font-size:9px">– ${c.needed}</span></div>`).join("");
+    if(!allOk){
+      const missing=checks.filter(c=>!c.ok).map(c=>c.name).join(", ");
+      box.innerHTML+=`<div style="margin-top:10px;padding:8px;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.2);border-radius:5px;font-size:10px;line-height:1.7">
+        <strong style="color:var(--overdue)">⚠ Fehlende Berechtigungen: ${missing}</strong><br>
+        <strong>Schritt 1:</strong> <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/CallAnAPI/appId/7ed3329b-9519-4f28-a63c-94f2033d6c59" target="_blank" style="color:var(--accent)">Azure Portal öffnen → API-Berechtigungen</a><br>
+        <strong>Schritt 2:</strong> Fehlende Berechtigungen (delegiert) hinzufügen<br>
+        <strong>Schritt 3:</strong> „Admin-Zustimmung erteilen" klicken<br>
+        <strong>Schritt 4:</strong> Neu anmelden damit neue Scopes aktiv werden
+      </div>`;
+    } else {
+      box.innerHTML+=`<div style="margin-top:8px;color:var(--accent);font-size:10px">✓ Alle Berechtigungen vorhanden</div>`;
+      // Live-Test: Planner API aufrufen
+      try{
+        await graphReq("GET","/me/planner/tasks?$top=1");
+        box.innerHTML+=`<div style="color:var(--accent);font-size:10px">✓ Planner API erreichbar</div>`;
+      }catch(te){
+        box.innerHTML+=`<div style="color:var(--overdue);font-size:10px">✗ Planner API Test fehlgeschlagen: ${esc(te.message.slice(0,80))}</div>`;
+      }
     }
   }catch{
     box.innerHTML=`<span style="color:var(--muted)">Token konnte nicht dekodiert werden.</span>`;
@@ -3345,14 +3491,15 @@ async function getPlannerToken(){
 }
 
 // ── GRAPH API HELPER ──────────────────────────────────────────────────────────
-async function graphReq(method,path,body,etag){
+async function graphReq(method,path,body,etag,useBeta=false){
   const token=await getPlannerToken();
   if(!token) throw new Error("Kein Token – bitte anmelden");
   const headers={"Authorization":`Bearer ${token}`,"Content-Type":"application/json"};
   if(etag) headers["If-Match"]=etag;
   const opts={method,headers};
   if(body) opts.body=JSON.stringify(body);
-  const res=await fetch(`https://graph.microsoft.com/v1.0${path}`,opts);
+  const base=useBeta?"https://graph.microsoft.com/beta":"https://graph.microsoft.com/v1.0";
+  const res=await fetch(`${base}${path}`,opts);
   if(!res.ok){
     let errTxt="";try{errTxt=await res.text();}catch{}
     throw new Error(`Graph ${method} ${path} → ${res.status}: ${errTxt.slice(0,400)}`);
@@ -3421,7 +3568,7 @@ function buildExportPreview(){
   preview.innerHTML=
     `<strong>Plan:</strong> ${planId?`…${planId.slice(-16)}`:"Wird neu erstellt"}<br>`+
     `<strong>Modus:</strong> ${mode==="auto"?`Auto (Group: ${groupId?`…${groupId.slice(-8)}`:"⚠ fehlt"})`:"Manuell (Plan-ID direkt)"}<br>`+
-    `<strong>Buckets:</strong> ${groups.length} (je ein Bucket pro Gruppe)<br>`+
+    `<strong>Buckets:</strong> Geplant · In Arbeit · Erledigt (statusbasiert)<br>`+
     `<strong>Aufgaben:</strong> ${tasks.length} (${synced} sync'd, ${tasks.length-synced} neu)<br>`+
     `<strong>Unteraufgaben:</strong> ${allSubs.length} (${syncedSubs} sync'd)<br>`+
     `<strong>Felder:</strong> Titel, Start, Fälligkeitsdatum, Fortschritt`+warn;
@@ -3478,20 +3625,67 @@ async function doExportToPlanner(){
       plLog(`✓ Plan: …${planId.slice(-10)}`,"var(--accent)");
     }
 
-    // 2. Buckets laden
+    // 2. Status-Buckets laden/anlegen: Geplant / In Arbeit / Erledigt
     progressTxt.textContent="Lade Buckets…";
     const bucketsRes=await graphReq("GET",`/planner/plans/${planId}/buckets`);
     const existingBuckets=bucketsRes.value||[];
-    const bucketMap={};
-    existingBuckets.forEach(b=>{const grp=groups.find(g=>g.name===b.name);if(grp)bucketMap[grp.key]=b.id;});
-
-    // 3. Fehlende Buckets erstellen
-    for(const g of groups){
-      if(!bucketMap[g.key]){
-        const bucket=await graphReq("POST","/planner/buckets",{planId,name:g.name,orderHint:" !"});
-        bucketMap[g.key]=bucket.id;
-        plLog(`  + Bucket: ${g.name}`,"var(--accent)");
+    // Status → Bucket-Name Mapping
+    const STATUS_BUCKET_NAMES={"Offen":"Geplant","In Arbeit":"In Arbeit","Erledigt":"Erledigt"};
+    const bucketByStatus={};
+    // Bereits vorhandene Buckets zuordnen
+    existingBuckets.forEach(b=>{
+      const statusKey=Object.entries(STATUS_BUCKET_NAMES).find(([_,name])=>name===b.name);
+      if(statusKey) bucketByStatus[statusKey[0]]=b.id;
+    });
+    // Fehlende Buckets anlegen (Reihenfolge: Geplant zuerst, dann In Arbeit, dann Erledigt)
+    for(const [status,bname] of Object.entries(STATUS_BUCKET_NAMES)){
+      if(!bucketByStatus[status]){
+        const bucket=await graphReq("POST","/planner/buckets",{planId,name:bname,orderHint:" !"});
+        bucketByStatus[status]=bucket.id;
+        plLog(`  + Bucket: ${bname}`,"var(--accent)");
       }
+    }
+
+    // 3. Label-Map aufbauen: Gruppen → Planner Label-Slots (Beta API)
+    progressTxt.textContent="Lade Labels…";
+    let labelMap=plannerSettings.labelMap||{};
+    let planLabels={};
+    let labelsSupported=true;
+    try{
+      const planDetails=await graphReq("GET",`/planner/plans/${planId}/details`,null,null,true);
+      planLabels=planDetails.categoryDescriptions||{};
+      // Finde freie Slots und weise Gruppen zu
+      const usedSlots=new Set(Object.values(labelMap));
+      for(const g of groups){
+        if(labelMap[g.key]) continue; // bereits zugewiesen
+        // Suche freien Slot (category1–category25)
+        for(let i=1;i<=25;i++){
+          const slot=`category${i}`;
+          if(!usedSlots.has(slot)){
+            labelMap[g.key]=slot;
+            usedSlots.add(slot);
+            break;
+          }
+        }
+      }
+      // Label-Namen setzen (Gruppen-Namen in die Slots schreiben)
+      const labelUpdates={};
+      let needsUpdate=false;
+      for(const [gkey,slot] of Object.entries(labelMap)){
+        const g=getG(gkey);
+        if(planLabels[slot]!==g.name){labelUpdates[slot]=g.name;needsUpdate=true;}
+      }
+      if(needsUpdate){
+        await graphReq("PATCH",`/planner/plans/${planId}/details`,{categoryDescriptions:labelUpdates},planDetails["@odata.etag"],true);
+        plLog(`  ✓ Labels gesetzt: ${groups.map(g=>g.name).join(", ")}`,"var(--accent)");
+      } else {
+        plLog(`  ✓ Labels bereits aktuell`,"var(--muted)");
+      }
+      plannerSettings.labelMap=labelMap;
+      localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+    }catch(e){
+      labelsSupported=false;
+      plLog(`  ⚠ Beta-Labels nicht verfügbar (${e.message.slice(0,60)}) – Gruppe wird als Titel-Präfix hinzugefügt`,"var(--today)");
     }
 
     // 4. Vorhandene Planner-Tasks laden
@@ -3502,26 +3696,36 @@ async function doExportToPlanner(){
     // 5. Alle Items exportieren
     const items=[];
     tasks.forEach(t=>{
-      items.push({item:t,bucketKey:t.group,isSubtask:false,parentTask:null,subIdx:-1});
-      (t.subtasks||[]).forEach((s,si)=>items.push({item:s,bucketKey:t.group,isSubtask:true,parentTask:t,subIdx:si}));
+      items.push({item:t,group:t.group,isSubtask:false,parentTask:null,subIdx:-1});
+      (t.subtasks||[]).forEach((s,si)=>items.push({item:s,group:t.group,isSubtask:true,parentTask:t,subIdx:si}));
     });
 
-    let created=0,updated=0,failed=0;
+    let created=0,updated=0,failed=0,labelFailed=0;
     for(let i=0;i<items.length;i++){
-      const {item,bucketKey,isSubtask,parentTask,subIdx}=items[i];
-      const bucketId=bucketMap[bucketKey];
-      if(!bucketId){failed++;plLog(`  ✗ Kein Bucket: ${item.task}`,"var(--overdue)");continue;}
-      const pct=STATUS_TO_PCT[item.status||"Offen"]??0;
-      const title=isSubtask?`[${parentTask.task.slice(0,40)}] ${item.task}`:item.task;
+      const {item,group,isSubtask,parentTask,subIdx}=items[i];
+      const itemStatus=item.status||"Offen";
+      const bucketId=bucketByStatus[itemStatus];
+      if(!bucketId){failed++;plLog(`  ✗ Kein Bucket für Status "${itemStatus}": ${item.task}`,"var(--overdue)");continue;}
+      const pct=STATUS_TO_PCT[itemStatus]??0;
+      const g=getG(group);
+      // Titel: bei Labels via Beta-API kein Präfix nötig; sonst Gruppen-Präfix
+      const grpPrefix=labelsSupported?"":`[${(g.abbr||g.name).slice(0,8)}] `;
+      const baseTitle=isSubtask?`${parentTask.task.slice(0,35)} › ${item.task}`:item.task;
+      const title=(grpPrefix+baseTitle).slice(0,255);
       const dueDate=item.end?new Date(item.end+"T23:59:59Z").toISOString():null;
+      const startDate=item.start?new Date(item.start+"T00:00:00Z").toISOString():null;
       progressTxt.textContent=`${i+1}/${items.length}: ${item.task.slice(0,30)}`;
       const existingPt=item.plannerTaskId?ptMap[item.plannerTaskId]:null;
-      const startDate=item.start?new Date(item.start+"T00:00:00Z").toISOString():null;
+
       if(existingPt){
         try{
-          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,{percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate,title},existingPt["@odata.etag"]);
+          // Bucket wechseln wenn Status sich geändert hat
+          const bucketChanged=existingPt.bucketId!==bucketId;
+          const patchBody={percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate,title};
+          if(bucketChanged) patchBody.bucketId=bucketId;
+          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,patchBody,existingPt["@odata.etag"]);
           updated++;plLog(`  ↑ ${title.slice(0,50)}`,"var(--muted)");
-        }catch(e){failed++;plLog(`  ✗ Update: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");}
+        }catch(e){failed++;plLog(`  ✗ Update: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");continue;}
       } else {
         try{
           const nt=await graphReq("POST","/planner/tasks",{planId,bucketId,title,percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate});
@@ -3529,17 +3733,42 @@ async function doExportToPlanner(){
           if(isSubtask){const par=tasks.find(tt=>tt.id===parentTask.id);if(par?.subtasks?.[subIdx])par.subtasks[subIdx].plannerTaskId=nt.id;}
           else{const par=tasks.find(tt=>tt.id===item.id);if(par)par.plannerTaskId=nt.id;}
           created++;plLog(`  + ${title.slice(0,50)}`,"var(--accent)");
-        }catch(e){failed++;plLog(`  ✗ Erstellen: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");}
+        }catch(e){failed++;plLog(`  ✗ Erstellen: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");continue;}
+      }
+
+      // 6. Label via Beta-API setzen (Gruppen-Zuordnung)
+      if(labelsSupported&&labelMap[group]&&item.plannerTaskId){
+        try{
+          // Task-Details holen für etag
+          const td=await graphReq("GET",`/planner/tasks/${item.plannerTaskId}/details`,null,null,true);
+          const cats=td.appliedCategories||{};
+          const slot=labelMap[group];
+          if(!cats[slot]){
+            cats[slot]=true;
+            await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}/details`,{appliedCategories:cats},td["@odata.etag"],true);
+          }
+        }catch(le){
+          labelFailed++;
+          if(labelFailed===1) plLog(`  ⚠ Labels konnten nicht gesetzt werden (Beta-API): ${le.message.slice(0,60)}`,"var(--today)");
+        }
       }
     }
 
     save();
     plLog("","");
-    plLog(`✓ Fertig: ${created} erstellt, ${updated} aktualisiert${failed>0?`, ${failed} Fehler`:""}`,failed>0?"var(--today)":"var(--accent)");
-    progressTxt.textContent=`Fertig: ${created} erstellt, ${updated} aktualisiert${failed>0?`, ${failed} Fehler`:""}`;
+    plLog(`✓ Fertig: ${created} erstellt, ${updated} aktualisiert${failed>0?`, ${failed} Fehler`:""}${labelFailed>0?` (${labelFailed} Label-Fehler)`:""}`,failed>0?"var(--today)":"var(--accent)");
+    progressTxt.textContent=`Fertig: ${created}↑ ${updated}≈${failed>0?` ${failed}✗`:""}`;
 
   }catch(e){
-    plLog(`✗ ${e.message}`,"var(--overdue)");console.error("Planner export:",e);
+    plLog(`✗ ${e.message}`,"var(--overdue)");
+    if(e.message.includes("403")||e.message.includes("401")){
+      plLog("","");
+      plLog("💡 Berechtigungsfehler – mögliche Ursachen:","var(--today)");
+      plLog("  1. Tasks.ReadWrite nicht erteilt oder keine Admin-Zustimmung","var(--today)");
+      plLog("  2. Neu anmelden damit neue Scopes aktiv werden","var(--today)");
+      plLog("  3. Azure Portal → App-Registrierungen → AC26 → API-Berechtigungen prüfen","var(--today)");
+    }
+    console.error("Planner export:",e);
   }
   exportBtn.style.display="";progressWrap.style.display="none";
 }
@@ -3929,6 +4158,26 @@ function findSuccessors(taskId){
   return result;
 }
 
+
+// ── DEP CONFLICT CHECKER ─────────────────────────────────────────────────────
+// Gibt {blocked:true, predTask, msg} zurück wenn t gegen seinen Vorgänger verstößt
+function checkDepConflict(t, newStart){
+  if(!t.dep) return {blocked:false};
+  const depIdStr=t.dep.startsWith("task:")?t.dep.split(":")[1]:null;
+  if(!depIdStr) return {blocked:false};
+  const pred=tasks.find(p=>p.id===parseInt(depIdStr));
+  if(!pred) return {blocked:false};
+  const sDate=typeof newStart==="string"?pd(newStart):newStart;
+  const predEnd=pd(pred.end);
+  if(sDate<=predEnd){
+    return{
+      blocked:true,
+      pred,
+      msg:`„${t.task}" kann nicht vor dem ${fde(pred.end)} starten – Vorgänger „${pred.task}" endet erst dann.`
+    };
+  }
+  return {blocked:false};
+}
 // Recursive cascade: applies shiftDays to all transitive successors
 function applyDepCascadeRecursive(taskId,shiftDays,visited){
   const successors=findSuccessors(taskId);
