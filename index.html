@@ -991,7 +991,12 @@ const SP_SITE="https://aczeltlager.sharepoint.com/sites/AC-Zeitplan";
 const SP_FILE="ac26_data.json";
 const GRAPH_BASE="https://graph.microsoft.com/v1.0";
 // Alle benötigten Scopes zusammen – verhindert Token-Cache-Konflikte mit Planner
-const SCOPES=["Sites.ReadWrite.All","User.Read","Team.ReadBasic.All","GroupMember.Read.All","Member.Read.Hidden","Tasks.ReadWrite","Group.Read.All"];
+// Graph-Scopes (Microsoft Graph API)
+const GRAPH_SCOPES=["User.Read","Team.ReadBasic.All","GroupMember.Read.All","Member.Read.Hidden","Tasks.ReadWrite","Group.Read.All"];
+// SharePoint-Scopes (separate Ressource – eigener Token)
+const SP_SCOPES=["Sites.ReadWrite.All"];
+// Kombiniert für Login (MSAL zeigt alle beim Consent-Dialog)
+const SCOPES=[...GRAPH_SCOPES,...SP_SCOPES];
 let msalApp=null,msalAccount=null;
 let spDriveId=null,pendingSave=false;
 
@@ -1095,7 +1100,7 @@ async function msalInit(){
 async function checkScopesUpToDate(){
   if(!msalApp||!msalAccount) return false;
   try{
-    const r=await msalApp.acquireTokenSilent({scopes:SCOPES,account:msalAccount});
+    const r=await msalApp.acquireTokenSilent({scopes:GRAPH_SCOPES,account:msalAccount});
     const payload=JSON.parse(atob(r.accessToken.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
     const scp=(payload.scp||"").toLowerCase();
     const needsMemberHidden=!scp.includes("member.read.hidden");
@@ -1116,7 +1121,7 @@ async function msalRelogin(){
   if(!msalApp||!msalAccount)return;
   try{
     // Gecachten Token für alle Scopes invalidieren
-    await msalApp.acquireTokenPopup({scopes:SCOPES,prompt:"consent",account:msalAccount});
+    await msalApp.acquireTokenPopup({scopes:GRAPH_SCOPES,prompt:"consent",account:msalAccount});
     window.location.reload();
   }catch(e){
     if(e.errorCode!=="user_cancelled") console.warn("Re-login:",e);
@@ -1132,10 +1137,17 @@ async function msalLogout(){
   await msalApp.logoutPopup({account:msalAccount});
   msalAccount=null;spDriveId=null;showLoginOverlay();updateAuthUI();
 }
+// Graph-Token (für Teams, Planner, User-API)
+async function getGraphToken(){
+  if(!msalApp||!msalAccount)return null;
+  try{const r=await msalApp.acquireTokenSilent({scopes:GRAPH_SCOPES,account:msalAccount});return r.accessToken;}
+  catch{try{const r=await msalApp.acquireTokenPopup({scopes:GRAPH_SCOPES,account:msalAccount});return r.accessToken;}catch(e){console.warn("Graph token error:",e);return null;}}
+}
+// SharePoint-Token (für Sites.ReadWrite.All)
 async function getToken(){
   if(!msalApp||!msalAccount)return null;
-  try{const r=await msalApp.acquireTokenSilent({scopes:SCOPES,account:msalAccount});return r.accessToken;}
-  catch{try{const r=await msalApp.acquireTokenPopup({scopes:SCOPES});return r.accessToken;}catch(e){return null;}}
+  try{const r=await msalApp.acquireTokenSilent({scopes:SP_SCOPES,account:msalAccount});return r.accessToken;}
+  catch{try{const r=await msalApp.acquireTokenPopup({scopes:SP_SCOPES,account:msalAccount});return r.accessToken;}catch(e){console.warn("SP token error:",e);return null;}}
 }
 async function onSignedIn(){
   setSyncStatus("syncing","Verbinde…");
@@ -1232,7 +1244,7 @@ async function fetchTeamMembers(tid, token){
 
 async function syncTeamMembers(teamLinks){
   if(!teamLinks||!teamLinks.length)return;
-  const token=await getToken();if(!token)return;
+  const token=await getGraphToken();if(!token)return;
   const allMembers=[],allOwners=[];
   for(const tid of teamLinks){
     // Members mit Fallback-Kette
@@ -1280,24 +1292,27 @@ async function syncAllTeamMembersBtn(){
   setStatus("Prüfe Token…");
 
   try{
-    const token=await getToken();
+    // Graph-Token explizit anfordern (nicht SharePoint-Token!)
+    const token=await getGraphToken();
     if(!token){
-      setStatus(`✗ Kein Token – bitte zuerst anmelden.<br><span style="font-size:9px">Der Login-Button im Banner verwenden.</span>`,"var(--overdue)");
+      setStatus(`✗ Kein Graph-Token – bitte neu anmelden.`,"var(--overdue)");
       if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
       return;
     }
 
-    // Decode token scopes for diagnosis
+    // Token-Scopes prüfen
     try{
       const payload=JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
       const scp=(payload.scp||"").toLowerCase();
+      const aud=(payload.aud||"").toLowerCase();
+      setStatus(`Token: aud=${aud.includes("graph")?"graph.microsoft.com ✓":aud.slice(0,40)+" ⚠"}, scopes: ${scp.slice(0,80)}`,"var(--dim)");
       const hasTeams=scp.includes("team.readbasic.all")||scp.includes("groupmember.read.all")||scp.includes("group.read.all");
       if(!hasTeams){
-        setStatus(`⚠ Scope <code>Team.ReadBasic.All</code> fehlt im Token.<br><span style="font-size:9px">Azure Portal → App-Registrierungen → AC26 → API-Berechtigungen → Team.ReadBasic.All (delegiert) + Admin-Zustimmung</span>`,"var(--today)");
+        setStatus(`⚠ Graph-Token hat keine Teams-Scopes. Bitte neu anmelden (⚠ Neu anmelden Button im Banner).`,"var(--today)");
         if(btn){btn.disabled=false;btn.textContent="↺ Teams sync";}
         return;
       }
-    }catch(te){/* token decode failed, proceed anyway */}
+    }catch(te){console.warn("Token decode:",te);}
 
     setStatus("Lade beigetretene Teams…");
     const teamsRes=await fetch(`${GRAPH_BASE}/me/joinedTeams`,{headers:{Authorization:`Bearer ${token}`}});
@@ -2307,7 +2322,7 @@ async function loadMsTeamsForModal(selectedIds){
   wrap.innerHTML="";
   if(!msTeamsList.length){
     try{
-      const token=await getToken();
+      const token=await getGraphToken();
       const res=await fetch(`${GRAPH_BASE}/me/joinedTeams`,{headers:{Authorization:`Bearer ${token}`}});
       const data=await res.json();
       msTeamsList=data.value||[];
@@ -3583,15 +3598,8 @@ async function checkPlannerPermissions(){
 
 // ── PLANNER TOKEN (mit Planner-Scopes) ───────────────────────────────────────
 async function getPlannerToken(){
-  if(!msalApp||!msalAccount) return null;
-  try{
-    // Nutzt die vereinigten SCOPES – kein separater Popup nötig
-    const r=await msalApp.acquireTokenSilent({scopes:SCOPES,account:msalAccount});
-    return r.accessToken;
-  }catch{
-    try{const r=await msalApp.acquireTokenPopup({scopes:SCOPES});msalAccount=r.account;return r.accessToken;}
-    catch(e){console.warn("Planner token:",e);return null;}
-  }
+  // Planner nutzt Graph API → Graph-Token verwenden
+  return getGraphToken();
 }
 
 // ── GRAPH API HELPER ──────────────────────────────────────────────────────────
