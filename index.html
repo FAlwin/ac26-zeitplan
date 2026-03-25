@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v13</title>
+<title>Meilensteinplan · AC 2026 · v14</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -344,6 +344,17 @@ body.classic .sub-toggle{display:none!important}
 .auth-btn.login{background:var(--accent);color:var(--accent-fg);border-color:transparent}
 .auth-btn.login:hover{opacity:.88}
 
+/* ── LOGIN OVERLAY ── */
+.login-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.login-overlay.hidden{display:none}
+.login-card{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:36px 40px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.15)}
+.login-card h2{font-size:20px;font-weight:700;margin-bottom:6px;letter-spacing:-.4px}
+.login-card p{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:24px;line-height:1.7}
+.login-card .btn-login-big{width:100%;padding:11px;border-radius:7px;background:var(--accent);color:var(--accent-fg);border:none;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .12s}
+.login-card .btn-login-big:hover{opacity:.88}
+.login-card .btn-login-big:disabled{opacity:.5;cursor:not-allowed}
+.login-spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--accent-fg);border-radius:50%;animation:spin .7s linear infinite;display:none}
+.login-card .login-hint{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:14px}
 /* ── ABHÄNGIGKEITEN ── */
 .dep-svg{position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:1;overflow:visible}
 .dep-arrow{fill:none;stroke:var(--muted);stroke-width:1.5;opacity:.45}
@@ -358,6 +369,20 @@ body.classic .sub-toggle{display:none!important}
 </style>
 </head>
 <body>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div style="font-size:32px;margin-bottom:12px">📋</div>
+    <h2>Meilensteinplan · AC 2026</h2>
+    <p>Bitte melde dich mit deinem Microsoft-Konto an,<br>um auf den Zeitplan zuzugreifen.</p>
+    <button class="btn-login-big" id="overlayLoginBtn" onclick="overlayLogin()">
+      <div class="login-spinner" id="overlaySpinner"></div>
+      <span id="overlayLoginTxt">⊙ Mit Microsoft anmelden</span>
+    </button>
+    <div class="login-hint" id="overlayHint">Daten werden auf SharePoint gespeichert und synchronisiert</div>
+  </div>
+</div>
 
 <div class="header">
   <div class="hdr-top">
@@ -691,14 +716,29 @@ body.classic .sub-toggle{display:none!important}
         </div>
       </div>
 
-      <!-- Gespeicherte Plan-ID Anzeige -->
-      <div id="plSavedPlanRow" style="display:none;margin-bottom:12px">
+      <!-- Plan Auswahl -->
+      <div class="fl">
         <label class="flb">Aktiver Plan</label>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:7px 10px;color:var(--accent)" id="plSavedPlanDisplay">–</div>
-          <button class="btn btn-g" onclick="clearPlanId()" style="flex-shrink:0;white-space:nowrap">✕ Zurücksetzen</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:7px 10px;color:var(--accent)" id="plSavedPlanDisplay">Kein Plan ausgewählt</div>
+          <button class="btn btn-g" onclick="loadExistingPlans()" style="flex-shrink:0;white-space:nowrap">📋 Pläne laden</button>
+          <button class="btn btn-d" id="plClearBtn" onclick="clearPlanId()" style="flex-shrink:0;white-space:nowrap;display:none">✕</button>
         </div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:4px">„Zurücksetzen" → nächster Export legt neuen Plan an</div>
+        <div id="plPlanList" style="display:none;max-height:180px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;margin-bottom:8px"></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);line-height:1.6">Wähle einen bestehenden Plan oder lass einen neuen anlegen.</div>
+      </div>
+
+      <!-- Auto-Sync Toggle -->
+      <div class="fl" style="background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:10px 12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;margin-bottom:2px">Auto-Sync</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);line-height:1.5">Nach jeder Änderung automatisch zu Planner synchronisieren (30s Verzögerung)</div>
+          </div>
+          <div onclick="toggleAutoSync()" id="autoSyncToggle" style="width:38px;height:22px;border-radius:11px;background:var(--dim);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
+            <div id="autoSyncKnob" style="position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.25)"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Permissions check -->
@@ -851,7 +891,7 @@ let interactiveMode=false,classicView="quarter";
 let coll={},selId=null,zoom=1,cols=[],ptitle="Meilensteinplan · AC 2026";
 let selCol="#4a9eff";
 let groupedMode=true; // true = grouped by team, false = flat sorted list
-let plannerSettings={groupId:"",planId:""}; // Microsoft Planner config
+let plannerSettings={groupId:"",planId:"",mode:"auto",autoSync:false}; // Microsoft Planner config
 const today=new Date();today.setHours(0,0,0,0);
 
 // ── MSAL / SHAREPOINT ────────────────────────────────────────────────────────
@@ -859,32 +899,76 @@ const MSAL_CONFIG={auth:{clientId:"7ed3329b-9519-4f28-a63c-94f2033d6c59",authori
 const SP_SITE="https://aczeltlager.sharepoint.com/sites/AC-Zeitplan";
 const SP_FILE="ac26_data.json";
 const GRAPH_BASE="https://graph.microsoft.com/v1.0";
-const SCOPES=["Sites.ReadWrite.All","User.Read","Team.ReadBasic.All","GroupMember.Read.All"];
+// Alle benötigten Scopes zusammen – verhindert Token-Cache-Konflikte mit Planner
+const SCOPES=["Sites.ReadWrite.All","User.Read","Team.ReadBasic.All","GroupMember.Read.All","Tasks.ReadWrite","Group.Read.All"];
 let msalApp=null,msalAccount=null;
 let spDriveId=null,pendingSave=false;
 
 try{msalApp=new msal.PublicClientApplication(MSAL_CONFIG);}catch(e){console.warn("MSAL init:",e);}
 
+// ── LOGIN OVERLAY ─────────────────────────────────────────────────────────────
+function showLoginOverlay(){
+  const ov=document.getElementById("loginOverlay");
+  if(ov)ov.classList.remove("hidden");
+}
+function hideLoginOverlay(){
+  const ov=document.getElementById("loginOverlay");
+  if(ov)ov.classList.add("hidden");
+}
+async function overlayLogin(){
+  const btn=document.getElementById("overlayLoginBtn");
+  const spinner=document.getElementById("overlaySpinner");
+  const txt=document.getElementById("overlayLoginTxt");
+  const hint=document.getElementById("overlayHint");
+  if(btn)btn.disabled=true;
+  if(spinner)spinner.style.display="inline-block";
+  if(txt)txt.textContent="Anmelden…";
+  if(hint)hint.textContent="Popup-Fenster öffnet sich…";
+  try{
+    if(!msalApp){hint.textContent="Fehler: MSAL nicht geladen";btn.disabled=false;spinner.style.display="none";txt.textContent="⊙ Mit Microsoft anmelden";return;}
+    const r=await msalApp.loginPopup({scopes:SCOPES});
+    msalAccount=r.account;
+    if(hint)hint.textContent="Angemeldet – lade Daten…";
+    await onSignedIn();
+    hideLoginOverlay();
+    updateAuthUI();
+  }catch(e){
+    console.warn("Overlay login failed:",e);
+    if(hint)hint.textContent="Anmeldung fehlgeschlagen – bitte erneut versuchen";
+    if(btn)btn.disabled=false;
+    if(spinner)spinner.style.display="none";
+    if(txt)txt.textContent="⊙ Mit Microsoft anmelden";
+  }
+}
+
 async function msalInit(){
-  if(!msalApp){updateAuthUI();return;}
+  if(!msalApp){showLoginOverlay();updateAuthUI();return;}
   try{
     await msalApp.initialize();
     const resp=await msalApp.handleRedirectPromise();
     if(resp)msalAccount=resp.account;
     else{const a=msalApp.getAllAccounts();if(a.length)msalAccount=a[0];}
-    if(msalAccount)await onSignedIn();
-  }catch(e){console.warn("MSAL init error:",e);}
+    if(msalAccount){
+      await onSignedIn();
+      hideLoginOverlay();
+    } else {
+      showLoginOverlay();
+    }
+  }catch(e){
+    console.warn("MSAL init error:",e);
+    showLoginOverlay();
+  }
   updateAuthUI();
 }
 async function msalLogin(){
   if(!msalApp)return;
-  try{const r=await msalApp.loginPopup({scopes:SCOPES});msalAccount=r.account;await onSignedIn();updateAuthUI();}
+  try{const r=await msalApp.loginPopup({scopes:SCOPES});msalAccount=r.account;await onSignedIn();hideLoginOverlay();updateAuthUI();}
   catch(e){console.warn("Login failed:",e);}
 }
 async function msalLogout(){
   if(!msalApp||!msalAccount)return;
   await msalApp.logoutPopup({account:msalAccount});
-  msalAccount=null;spDriveId=null;updateAuthUI();
+  msalAccount=null;spDriveId=null;showLoginOverlay();updateAuthUI();
 }
 async function getToken(){
   if(!msalApp||!msalAccount)return null;
@@ -991,7 +1075,13 @@ function applyData(d){
   if(d.tasks)tasks=d.tasks;if(d.groups)groups=d.groups;if(d.nid)nextId=d.nid;
   if(d.coll)coll=d.coll;if(d.collSub)collSub=d.collSub;if(d.title)ptitle=d.title;
   if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;
-  if(d.plannerSettings)plannerSettings={...plannerSettings,...d.plannerSettings};
+  if(d.plannerSettings){
+    plannerSettings={...plannerSettings,...d.plannerSettings};
+    // Auch in localStorage aktualisieren damit planId nach SP-Load verfügbar ist
+    localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+  }
+  updatePlannerBtn();
+  updateAutoSyncUI();
   render();
 }
 function saveLocal(){localStorage.setItem("ac26_v3",JSON.stringify(buildSaveData()));}
@@ -1032,6 +1122,8 @@ function save(){
     if(save._t)clearTimeout(save._t);
     save._t=setTimeout(()=>saveToSharePoint(),2000);
   }
+  // Auto-sync to Planner if enabled
+  scheduleAutoSync();
 }
 load();
 
@@ -2771,13 +2863,113 @@ function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").
 // ── PLANNER SYNC ─────────────────────────────────────────────────────────────
 // plannerSettings declared at top: {groupId, planId, mode}
 
-const PLANNER_SCOPES=["Tasks.ReadWrite","Group.Read.All","User.Read","Sites.ReadWrite.All","Team.ReadBasic.All","GroupMember.Read.All"];
+// PLANNER_SCOPES = SCOPES (merged at MSAL init level — no separate token request needed)
+const PLANNER_SCOPES=SCOPES;
 
 function loadPlannerSettings(){
   try{
     const s=localStorage.getItem("ac26_planner");
     if(s){const d=JSON.parse(s);plannerSettings={...plannerSettings,...d};}
   }catch{}
+}
+
+// ── AUTO SYNC ─────────────────────────────────────────────────────────────────
+let _autoSyncTimer=null;
+function scheduleAutoSync(){
+  if(!plannerSettings.autoSync||!plannerSettings.planId)return;
+  if(_autoSyncTimer)clearTimeout(_autoSyncTimer);
+  _autoSyncTimer=setTimeout(()=>silentSyncToPlanner(),30000);
+}
+
+async function silentSyncToPlanner(){
+  if(!plannerSettings.planId||!msalAccount)return;
+  try{
+    const planId=plannerSettings.planId;
+    const ptRes=await graphReq("GET",`/planner/plans/${planId}/tasks`);
+    const ptMap={};(ptRes.value||[]).forEach(pt=>ptMap[pt.id]=pt);
+    const items=[];
+    tasks.forEach(t=>{
+      items.push({item:t,isSubtask:false,parentTask:null,subIdx:-1});
+      (t.subtasks||[]).forEach((s,si)=>items.push({item:s,isSubtask:true,parentTask:t,subIdx:si}));
+    });
+    let changed=0;
+    for(const {item,isSubtask,parentTask,subIdx} of items){
+      if(!item.plannerTaskId)continue;
+      const existingPt=ptMap[item.plannerTaskId];
+      if(!existingPt)continue;
+      const pct=STATUS_TO_PCT[item.status||"Offen"]??0;
+      const dueDate=item.end?new Date(item.end+"T23:59:59Z").toISOString():null;
+      const startDate=item.start?new Date(item.start+"T00:00:00Z").toISOString():null;
+      if(existingPt.percentComplete!==pct||existingPt.dueDateTime!==dueDate||existingPt.startDateTime!==startDate){
+        try{
+          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,{percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate},existingPt["@odata.etag"]);
+          changed++;
+        }catch(e){console.warn("Auto-sync patch:",e);}
+      }
+    }
+    if(changed>0){setSyncStatus("synced",`Planner: ${changed} aktualisiert ${new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}`);}
+  }catch(e){console.warn("Auto-sync error:",e);}
+}
+
+function toggleAutoSync(){
+  plannerSettings.autoSync=!plannerSettings.autoSync;
+  updateAutoSyncUI();
+  localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+}
+function updateAutoSyncUI(){
+  const toggle=document.getElementById("autoSyncToggle");
+  const knob=document.getElementById("autoSyncKnob");
+  if(!toggle||!knob)return;
+  const on=!!plannerSettings.autoSync;
+  toggle.style.background=on?"var(--accent)":"var(--dim)";
+  knob.style.left=on?"18px":"2px";
+}
+
+// ── PLAN PICKER ───────────────────────────────────────────────────────────────
+async function loadExistingPlans(){
+  const groupId=plannerSettings.groupId;
+  const list=document.getElementById("plPlanList");
+  if(!list)return;
+  list.style.display="";
+  list.innerHTML=`<div style="padding:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">Lade Pläne…</div>`;
+  try{
+    let plans=[];
+    if(groupId){
+      const res=await graphReq("GET",`/groups/${groupId}/planner/plans`);
+      plans=res.value||[];
+    } else {
+      const res=await graphReq("GET","/me/planner/plans");
+      plans=res.value||[];
+    }
+    if(!plans.length){
+      list.innerHTML=`<div style="padding:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">Keine Pläne gefunden. Beim Export wird ein neuer Plan erstellt.</div>`;
+      return;
+    }
+    list.innerHTML=`<div style="padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px">Plan auswählen:</div>`+
+    plans.map(p=>{
+      const active=plannerSettings.planId===p.id;
+      return`<div onclick="selectPlan('${p.id}','${p.title.replace(/'/g,"\'")}')"`+
+        ` style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:11px;display:flex;gap:8px;align-items:center;background:${active?"var(--surface3)":""}"`+
+        ` onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='${active?"var(--surface3)":""}'">` +
+        `<div style="flex:1"><div style="color:var(--text);font-weight:600">${p.title}</div><div style="font-size:9px;color:var(--dim)">…${p.id.slice(-16)}</div></div>`+
+        `<div style="color:${active?"var(--accent)":"var(--muted)"};font-size:10px;flex-shrink:0">${active?"✓ Aktiv":"▶ wählen"}</div></div>`;
+    }).join("")+
+    `<div onclick="selectPlan('','')" style="padding:8px 12px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''"><div style="flex:1">+ Neuen Plan erstellen</div></div>`;
+  }catch(e){
+    list.innerHTML=`<div style="padding:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--overdue)">Fehler: ${esc(e.message)}</div>`;
+  }
+}
+
+function selectPlan(id,title){
+  plannerSettings.planId=id;
+  localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+  const disp=document.getElementById("plSavedPlanDisplay");
+  const clearBtn=document.getElementById("plClearBtn");
+  if(disp)disp.textContent=id?`${title} (…${id.slice(-10)})`:"Neuen Plan erstellen";
+  if(clearBtn)clearBtn.style.display=id?"":"none";
+  const list=document.getElementById("plPlanList");
+  if(list)list.style.display="none";
+  save();
 }
 
 function updatePlannerBtn(){
@@ -2802,6 +2994,7 @@ function savePlannerSettings(){
   } else {
     plannerSettings.planId=(document.getElementById("plPlanIdManual").value||"").trim();
   }
+  // autoSync is already updated via toggleAutoSync()
   localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
   save();
   updatePlannerBtn();
@@ -2812,18 +3005,24 @@ function clearPlanId(){
   plannerSettings.planId="";
   localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
   save();
-  document.getElementById("plSavedPlanRow").style.display="none";
+  const disp=document.getElementById("plSavedPlanDisplay");
+  const clearBtn=document.getElementById("plClearBtn");
+  if(disp)disp.textContent="Kein Plan ausgewählt";
+  if(clearBtn)clearBtn.style.display="none";
 }
 
 function openPlannerModal(){
   loadPlannerSettings();
   document.getElementById("plGroupId").value=plannerSettings.groupId||"";
   document.getElementById("plPlanIdManual").value=plannerSettings.planId||"";
-  const hasPlan=!!plannerSettings.planId;
-  document.getElementById("plSavedPlanRow").style.display=hasPlan?"":"none";
-  document.getElementById("plSavedPlanDisplay").textContent=hasPlan?`…${plannerSettings.planId.slice(-16)}`:"–";
+  // Update plan display
+  const disp=document.getElementById("plSavedPlanDisplay");
+  const clearBtn=document.getElementById("plClearBtn");
+  if(disp)disp.textContent=plannerSettings.planId?`Aktiv: …${plannerSettings.planId.slice(-16)}`:"Kein Plan ausgewählt";
+  if(clearBtn)clearBtn.style.display=plannerSettings.planId?"":"none";
   document.getElementById("plDiagBox").style.display="none";
   setPlannerMode(plannerSettings.mode||"auto");
+  updateAutoSyncUI();
   switchPlTab("cfg");
   document.getElementById("plannerModal").classList.add("open");
 }
@@ -2855,10 +3054,11 @@ async function checkPlannerPermissions(){
 async function getPlannerToken(){
   if(!msalApp||!msalAccount) return null;
   try{
-    const r=await msalApp.acquireTokenSilent({scopes:PLANNER_SCOPES,account:msalAccount});
+    // Nutzt die vereinigten SCOPES – kein separater Popup nötig
+    const r=await msalApp.acquireTokenSilent({scopes:SCOPES,account:msalAccount});
     return r.accessToken;
   }catch{
-    try{const r=await msalApp.acquireTokenPopup({scopes:PLANNER_SCOPES,account:msalAccount});return r.accessToken;}
+    try{const r=await msalApp.acquireTokenPopup({scopes:SCOPES});msalAccount=r.account;return r.accessToken;}
     catch(e){console.warn("Planner token:",e);return null;}
   }
 }
@@ -2930,19 +3130,23 @@ function plLog(msg,color){
 function buildExportPreview(){
   const preview=document.getElementById("plExportPreview");
   const synced=tasks.filter(t=>t.plannerTaskId).length;
+  const syncedSubs=tasks.flatMap(t=>t.subtasks||[]).filter(s=>s.plannerTaskId).length;
   const allSubs=tasks.flatMap(t=>t.subtasks||[]);
   const mode=plannerSettings.mode||"auto";
   const planId=plannerSettings.planId;
   const groupId=plannerSettings.groupId;
+  const autoSync=plannerSettings.autoSync;
   let warn="";
   if(mode==="auto"&&!groupId) warn+=`<br><span style="color:var(--overdue)">⚠ Keine Group-ID → Einstellungen öffnen</span>`;
-  if(!planId) warn+=`<br><span style="color:var(--today)">ℹ Plan wird beim Export neu angelegt</span>`;
+  if(!planId) warn+=`<br><span style="color:var(--today)">ℹ Plan wird beim Export neu angelegt (oder Pläne laden + auswählen)</span>`;
+  if(autoSync) warn+=`<br><span style="color:var(--accent)">✓ Auto-Sync aktiv (30s Verzögerung)</span>`;
   preview.innerHTML=
-    `<strong>Plan:</strong> ${planId?`ID …${planId.slice(-10)}`:"Wird neu erstellt"}<br>`+
+    `<strong>Plan:</strong> ${planId?`…${planId.slice(-16)}`:"Wird neu erstellt"}<br>`+
     `<strong>Modus:</strong> ${mode==="auto"?`Auto (Group: ${groupId?`…${groupId.slice(-8)}`:"⚠ fehlt"})`:"Manuell (Plan-ID direkt)"}<br>`+
-    `<strong>Buckets:</strong> ${groups.length}<br>`+
-    `<strong>Aufgaben:</strong> ${tasks.length} (${synced} bereits sync'd, ${tasks.length-synced} neu)<br>`+
-    `<strong>Unteraufgaben:</strong> ${allSubs.length}`+warn;
+    `<strong>Buckets:</strong> ${groups.length} (je ein Bucket pro Gruppe)<br>`+
+    `<strong>Aufgaben:</strong> ${tasks.length} (${synced} sync'd, ${tasks.length-synced} neu)<br>`+
+    `<strong>Unteraufgaben:</strong> ${allSubs.length} (${syncedSubs} sync'd)<br>`+
+    `<strong>Felder:</strong> Titel, Start, Fälligkeitsdatum, Fortschritt`+warn;
 }
 
 // ── EXPORT → PLANNER ─────────────────────────────────────────────────────────
@@ -3034,14 +3238,15 @@ async function doExportToPlanner(){
       const dueDate=item.end?new Date(item.end+"T23:59:59Z").toISOString():null;
       progressTxt.textContent=`${i+1}/${items.length}: ${item.task.slice(0,30)}`;
       const existingPt=item.plannerTaskId?ptMap[item.plannerTaskId]:null;
+      const startDate=item.start?new Date(item.start+"T00:00:00Z").toISOString():null;
       if(existingPt){
         try{
-          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,{percentComplete:pct,dueDateTime:dueDate,title},existingPt["@odata.etag"]);
+          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,{percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate,title},existingPt["@odata.etag"]);
           updated++;plLog(`  ↑ ${title.slice(0,50)}`,"var(--muted)");
         }catch(e){failed++;plLog(`  ✗ Update: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");}
       } else {
         try{
-          const nt=await graphReq("POST","/planner/tasks",{planId,bucketId,title,percentComplete:pct,dueDateTime:dueDate});
+          const nt=await graphReq("POST","/planner/tasks",{planId,bucketId,title,percentComplete:pct,dueDateTime:dueDate,startDateTime:startDate});
           item.plannerTaskId=nt.id;
           if(isSubtask){const par=tasks.find(tt=>tt.id===parentTask.id);if(par?.subtasks?.[subIdx])par.subtasks[subIdx].plannerTaskId=nt.id;}
           else{const par=tasks.find(tt=>tt.id===item.id);if(par)par.plannerTaskId=nt.id;}
@@ -3130,6 +3335,7 @@ loadPlannerSettings();
 // ── END PLANNER ───────────────────────────────────────────────────────────────
 
 render();
+updateAutoSyncUI();
 document.body.classList.add("classic");
 // Status-Option beim Start entfernen (Übersicht ist Standard, Safari ignoriert display:none auf <option>)
 const _so=document.querySelector("#sortSel option[value='status']");
