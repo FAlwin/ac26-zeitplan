@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meilensteinplan · AC 2026 · v12</title>
+<title>Meilensteinplan · AC 2026 · v13</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -649,34 +649,67 @@ body.classic .sub-toggle{display:none!important}
     <!-- Tab: Einstellungen -->
     <div id="plTabCfg">
       <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Ein Planner-Plan mit Buckets pro Gruppe. Beim ersten Export wird der Plan automatisch angelegt. Die Plan-ID wird hier gespeichert.
+        Der Planner-Plan wird einmalig angelegt und dann dauerhaft genutzt. Du kannst den Plan auch manuell in Planner anlegen und die ID hier eintragen.
       </p>
+
+      <!-- Diagnose-Box -->
+      <div id="plDiagBox" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.7"></div>
+
       <div class="fl">
-        <label class="flb">Microsoft 365 Gruppe (Group-ID) <span style="opacity:.6">– für den Planner-Plan</span></label>
-        <input class="fi" id="plGroupId" placeholder="z.B. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:4px">Die Objekt-ID der M365-Gruppe, in der der Plan erstellt werden soll (Azure AD → Gruppen).</div>
-      </div>
-      <div class="fl">
-        <label class="flb">Plan-ID <span style="opacity:.6">(wird nach erstem Export automatisch eingetragen)</span></label>
-        <div style="display:flex;gap:8px">
-          <input class="fi" id="plPlanId" placeholder="Wird nach Export befüllt" style="flex:1">
-          <button class="btn btn-g" onclick="clearPlanId()" title="Plan-ID zurücksetzen (neuen Plan anlegen)">✕ Reset</button>
+        <label class="flb">Methode</label>
+        <div style="display:flex;gap:0;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;overflow:hidden;margin-bottom:8px">
+          <button id="plModeAutoBtn" onclick="setPlannerMode('auto')" style="flex:1;padding:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--accent);color:var(--accent-fg);border:none;cursor:pointer;font-weight:600">Auto (Group-ID)</button>
+          <button id="plModeManualBtn" onclick="setPlannerMode('manual')" style="flex:1;padding:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:none;color:var(--muted);border:none;cursor:pointer">Manuell (Plan-ID)</button>
         </div>
       </div>
-      <div class="fl">
-        <label class="flb">Planner-Status Mapping</label>
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">
-          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">Offen</div>
-          <span>→</span>
-          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">notStarted</div>
-          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">In Arbeit</div>
-          <span>→</span>
-          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">inProgress</div>
-          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">Erledigt</div>
-          <span>→</span>
-          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px">completed</div>
+
+      <!-- AUTO MODE -->
+      <div id="plModeAuto">
+        <div class="fl">
+          <label class="flb">Microsoft 365 Gruppe (Group-ID)</label>
+          <input class="fi" id="plGroupId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:5px;line-height:1.6">
+            <strong style="color:var(--muted)">Wo finde ich das?</strong><br>
+            Option A: <a href="https://portal.azure.com/#blade/Microsoft_AAD_IAM/GroupsManagementMenuBlade/AllGroups" target="_blank" style="color:var(--accent)">Azure Portal → Gruppen</a> → Gruppe auswählen → Objekt-ID kopieren<br>
+            Option B: Teams → Team-Einstellungen → das Team hat dieselbe ID wie seine M365-Gruppe<br>
+            Option C: Klicke „Gruppen suchen" um deine verfügbaren Gruppen zu laden
+          </div>
+        </div>
+        <button class="btn btn-g" onclick="searchM365Groups()" style="margin-bottom:12px">🔍 Gruppen suchen</button>
+        <div id="plGroupResults" style="display:none;max-height:160px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;margin-bottom:12px"></div>
+      </div>
+
+      <!-- MANUAL MODE -->
+      <div id="plModeManual" style="display:none">
+        <div class="fl">
+          <label class="flb">Plan-ID <span style="opacity:.6">(direkt aus Planner kopieren)</span></label>
+          <input class="fi" id="plPlanIdManual" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:5px;line-height:1.6">
+            <strong style="color:var(--muted)">Wo finde ich die Plan-ID?</strong><br>
+            In Planner: Plan öffnen → URL enthält <code style="background:var(--surface3);padding:1px 4px;border-radius:2px">/planner/plan/<strong>PLAN-ID</strong>/view/board</code>
+          </div>
         </div>
       </div>
+
+      <!-- Gespeicherte Plan-ID Anzeige -->
+      <div id="plSavedPlanRow" style="display:none;margin-bottom:12px">
+        <label class="flb">Aktiver Plan</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:7px 10px;color:var(--accent)" id="plSavedPlanDisplay">–</div>
+          <button class="btn btn-g" onclick="clearPlanId()" style="flex-shrink:0;white-space:nowrap">✕ Zurücksetzen</button>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:4px">„Zurücksetzen" → nächster Export legt neuen Plan an</div>
+      </div>
+
+      <!-- Permissions check -->
+      <div class="fl">
+        <label class="flb">Benötigte Berechtigungen</label>
+        <div id="plPermCheck" style="font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.8;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:8px 10px">
+          <button class="btn btn-g" onclick="checkPlannerPermissions()" style="font-size:10px;padding:3px 10px;margin-bottom:6px">🔍 Berechtigungen prüfen</button><br>
+          <span style="color:var(--dim)">Tasks.ReadWrite + Group.Read.All werden benötigt</span>
+        </div>
+      </div>
+
       <div class="fa" style="margin-top:8px">
         <button class="btn btn-g" onclick="closeModal('plannerModal')">Schließen</button>
         <button class="btn btn-p" onclick="savePlannerSettings()">Speichern</button>
@@ -2735,367 +2768,365 @@ window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",()=>r
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
-
 // ── PLANNER SYNC ─────────────────────────────────────────────────────────────
-// Settings stored in localStorage + SharePoint data
+// plannerSettings declared at top: {groupId, planId, mode}
+
+const PLANNER_SCOPES=["Tasks.ReadWrite","Group.Read.All","User.Read","Sites.ReadWrite.All","Team.ReadBasic.All","GroupMember.Read.All"];
 
 function loadPlannerSettings(){
-  // Primary source: main save data (already loaded in load())
-  // Fallback: dedicated planner key (for migration or override)
   try{
     const s=localStorage.getItem("ac26_planner");
     if(s){const d=JSON.parse(s);plannerSettings={...plannerSettings,...d};}
   }catch{}
 }
-function savePlannerSettings(){
-  const gid = document.getElementById("plGroupId").value.trim();
-  const pid = document.getElementById("plPlanId").value.trim();
-  plannerSettings.groupId = gid;
-  plannerSettings.planId = pid;
-  localStorage.setItem("ac26_planner", JSON.stringify(plannerSettings));
-  save();
-  closeModal("plannerModal");
-  updatePlannerBtn();
-  alert("Planner-Einstellungen gespeichert.");
-}
-function clearPlanId(){
-  plannerSettings.planId = "";
-  document.getElementById("plPlanId").value = "";
-  localStorage.setItem("ac26_planner", JSON.stringify(plannerSettings));
-}
+
 function updatePlannerBtn(){
-  const btn = document.getElementById("plannerBtn");
-  if(btn && msalAccount && canEdit()) btn.style.display = "";
-  else if(btn) btn.style.display = "none";
+  const btn=document.getElementById("plannerBtn");
+  if(btn&&msalAccount&&canEdit()) btn.style.display="";
+  else if(btn) btn.style.display="none";
 }
 
-// Status mapping
-const STATUS_TO_PLANNER = {"Offen": 0, "In Arbeit": 1, "Erledigt": 2};
-const PLANNER_TO_STATUS = {0: "Offen", 1: "In Arbeit", 2: "Erledigt"};
-// percentComplete values Planner accepts: 0=notStarted, 50=inProgress, 100=completed
-const STATUS_TO_PCT = {"Offen": 0, "In Arbeit": 50, "Erledigt": 100};
-const PCT_TO_STATUS = {0: "Offen", 50: "In Arbeit", 100: "Erledigt"};
+function setPlannerMode(mode){
+  plannerSettings.mode=mode;
+  const isAuto=mode==="auto";
+  document.getElementById("plModeAuto").style.display=isAuto?"":"none";
+  document.getElementById("plModeManual").style.display=isAuto?"none":"";
+  document.getElementById("plModeAutoBtn").style.cssText=`flex:1;padding:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:${isAuto?"var(--accent)":""};color:${isAuto?"var(--accent-fg)":"var(--muted)"};border:none;cursor:pointer;font-weight:${isAuto?"600":"400"}`;
+  document.getElementById("plModeManualBtn").style.cssText=`flex:1;padding:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:${isAuto?"":"var(--accent)"};color:${isAuto?"var(--muted)":"var(--accent-fg)"};border:none;cursor:pointer;font-weight:${isAuto?"400":"600"}`;
+}
 
-function switchPlTab(tab){
-  const tabs = {cfg:"plTabCfg", exp:"plTabExp", imp:"plTabImp"};
-  const btns = {cfg:"plTabCfgBtn", exp:"plTabExpBtn", imp:"plTabImpBtn"};
-  Object.keys(tabs).forEach(t=>{
-    document.getElementById(tabs[t]).style.display = t===tab?"":"none";
-    const btn = document.getElementById(btns[t]);
-    if(btn){
-      btn.style.borderBottomColor = t===tab?"var(--accent)":"transparent";
-      btn.style.color = t===tab?"var(--text)":"var(--muted)";
-      btn.style.fontWeight = t===tab?"600":"400";
-    }
-  });
-  if(tab==="exp") buildExportPreview();
-  if(tab==="imp"){
-    document.getElementById("plImportPreview").innerHTML = '<span style="opacity:.5">← Klicke „Vorschau laden" um Planner-Status zu lesen</span>';
-    document.getElementById("plImportBtn").style.display = "none";
+function savePlannerSettings(){
+  const mode=plannerSettings.mode||"auto";
+  if(mode==="auto"){
+    plannerSettings.groupId=(document.getElementById("plGroupId").value||"").trim();
+  } else {
+    plannerSettings.planId=(document.getElementById("plPlanIdManual").value||"").trim();
   }
+  localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+  save();
+  updatePlannerBtn();
+  closeModal("plannerModal");
+}
+
+function clearPlanId(){
+  plannerSettings.planId="";
+  localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+  save();
+  document.getElementById("plSavedPlanRow").style.display="none";
 }
 
 function openPlannerModal(){
   loadPlannerSettings();
-  document.getElementById("plGroupId").value = plannerSettings.groupId || "";
-  document.getElementById("plPlanId").value = plannerSettings.planId || "";
+  document.getElementById("plGroupId").value=plannerSettings.groupId||"";
+  document.getElementById("plPlanIdManual").value=plannerSettings.planId||"";
+  const hasPlan=!!plannerSettings.planId;
+  document.getElementById("plSavedPlanRow").style.display=hasPlan?"":"none";
+  document.getElementById("plSavedPlanDisplay").textContent=hasPlan?`…${plannerSettings.planId.slice(-16)}`:"–";
+  document.getElementById("plDiagBox").style.display="none";
+  setPlannerMode(plannerSettings.mode||"auto");
   switchPlTab("cfg");
   document.getElementById("plannerModal").classList.add("open");
 }
 
-function buildExportPreview(){
-  const preview = document.getElementById("plExportPreview");
-  const synced = tasks.filter(t=>t.plannerTaskId).length;
-  const unsynced = tasks.filter(t=>!t.plannerTaskId).length;
-  const grpCount = groups.length;
-  const planId = plannerSettings.planId;
-  preview.innerHTML =
-    `<strong>Plan:</strong> ${planId ? `ID endet auf …${planId.slice(-8)}` : "Wird neu erstellt"}<br>`+
-    `<strong>Gruppe (Group-ID):</strong> ${plannerSettings.groupId ? `…${plannerSettings.groupId.slice(-8)}` : '<span style="color:var(--overdue)">⚠ Noch nicht konfiguriert (Einstellungen)</span>'}<br>`+
-    `<strong>Buckets:</strong> ${grpCount} (je eine Gruppe)<br>`+
-    `<strong>Aufgaben gesamt:</strong> ${tasks.length}<br>`+
-    `<strong>Bereits im Planner:</strong> ${synced} (werden aktualisiert)<br>`+
-    `<strong>Neu anzulegen:</strong> ${unsynced}<br>`+
-    `<br><span style="opacity:.7">Unteraufgaben werden als eigene Planner-Tasks im selben Bucket angelegt. Fälligkeitsdatum = Endtermin im Zeitplan.</span>`;
+// ── PERMISSION CHECK ─────────────────────────────────────────────────────────
+async function checkPlannerPermissions(){
+  const box=document.getElementById("plPermCheck");
+  box.innerHTML=`<span style="color:var(--muted)">Prüfe…</span>`;
+  const token=await getPlannerToken();
+  if(!token){box.innerHTML=`<span style="color:var(--overdue)">✗ Kein Token – bitte anmelden</span>`;return;}
+  try{
+    const payload=JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+    const scp=(payload.scp||"").toLowerCase();
+    const checks=[
+      {name:"Tasks.ReadWrite",ok:scp.includes("tasks.readwrite")},
+      {name:"Group.Read.All",ok:scp.includes("group.read.all")||scp.includes("group.readwrite.all")},
+      {name:"User.Read",ok:scp.includes("user.read")},
+    ];
+    box.innerHTML=checks.map(c=>`<span style="color:${c.ok?"var(--accent)":"var(--overdue)"}">${c.ok?"✓":"✗"} ${c.name}</span>`).join("<br>");
+    if(!checks[0].ok){
+      box.innerHTML+=`<br><br><span style="color:var(--today)">⚠ Tasks.ReadWrite fehlt!<br>Azure Portal → App-Registrierungen → AC26 → API-Berechtigungen → „Tasks.ReadWrite" (delegiert) hinzufügen + Admin-Zustimmung erteilen.</span>`;
+    }
+  }catch{
+    box.innerHTML=`<span style="color:var(--muted)">Token konnte nicht dekodiert werden.</span>`;
+  }
 }
 
-// ── GRAPH API HELPERS ─────────────────────────────────────────────────────────
-async function graphReq(method, path, body, etag){
-  const token = await getToken();
-  if(!token) throw new Error("Kein Token");
-  const headers = {Authorization:`Bearer ${token}`, "Content-Type":"application/json"};
-  if(etag) headers["If-Match"] = etag;
-  const opts = {method, headers};
-  if(body) opts.body = JSON.stringify(body);
-  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, opts);
+// ── PLANNER TOKEN (mit Planner-Scopes) ───────────────────────────────────────
+async function getPlannerToken(){
+  if(!msalApp||!msalAccount) return null;
+  try{
+    const r=await msalApp.acquireTokenSilent({scopes:PLANNER_SCOPES,account:msalAccount});
+    return r.accessToken;
+  }catch{
+    try{const r=await msalApp.acquireTokenPopup({scopes:PLANNER_SCOPES,account:msalAccount});return r.accessToken;}
+    catch(e){console.warn("Planner token:",e);return null;}
+  }
+}
+
+// ── GRAPH API HELPER ──────────────────────────────────────────────────────────
+async function graphReq(method,path,body,etag){
+  const token=await getPlannerToken();
+  if(!token) throw new Error("Kein Token – bitte anmelden");
+  const headers={"Authorization":`Bearer ${token}`,"Content-Type":"application/json"};
+  if(etag) headers["If-Match"]=etag;
+  const opts={method,headers};
+  if(body) opts.body=JSON.stringify(body);
+  const res=await fetch(`https://graph.microsoft.com/v1.0${path}`,opts);
   if(!res.ok){
-    const errTxt = await res.text().catch(()=>"");
-    throw new Error(`Graph ${method} ${path} → ${res.status}: ${errTxt}`);
+    let errTxt="";try{errTxt=await res.text();}catch{}
+    throw new Error(`Graph ${method} ${path} → ${res.status}: ${errTxt.slice(0,400)}`);
   }
   if(res.status===204) return null;
   return res.json();
 }
 
-// ── EXPORT → PLANNER ─────────────────────────────────────────────────────────
-function plLog(msg, color){
-  const log = document.getElementById("plExportLog");
-  if(!log) return;
-  const line = document.createElement("div");
-  line.style.color = color || "var(--muted)";
-  line.textContent = msg;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
+// ── GROUP SEARCH ──────────────────────────────────────────────────────────────
+async function searchM365Groups(){
+  const wrap=document.getElementById("plGroupResults");
+  wrap.style.display="";
+  wrap.innerHTML=`<div style="padding:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">Lade Gruppen…</div>`;
+  try{
+    // Try unified groups first, fallback to all member groups
+    let items=[];
+    try{
+      const res=await graphReq("GET","/me/memberOf?$select=id,displayName,groupTypes&$top=50");
+      items=(res.value||[]).filter(g=>Array.isArray(g.groupTypes)&&g.groupTypes.includes("Unified"));
+    }catch{
+      const res=await graphReq("GET","/me/memberOf?$select=id,displayName&$top=50");
+      items=res.value||[];
+    }
+    if(!items.length){
+      wrap.innerHTML=`<div style="padding:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">Keine Gruppen gefunden. Versuche die Group-ID manuell einzutragen.</div>`;
+      return;
+    }
+    wrap.innerHTML=items.map(g=>`
+      <div onclick="selectGroup('${g.id}','${esc(g.displayName)}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:11px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''">
+        <div style="flex:1"><div style="color:var(--text);font-weight:600">${esc(g.displayName)}</div><div style="font-size:9px;color:var(--dim)">${g.id}</div></div>
+        <div style="color:var(--accent);font-size:10px;flex-shrink:0">▶ wählen</div>
+      </div>`).join("");
+  }catch(e){
+    wrap.innerHTML=`<div style="padding:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--overdue)">Fehler: ${esc(e.message)}</div>`;
+  }
 }
 
+function selectGroup(id,name){
+  document.getElementById("plGroupId").value=id;
+  document.getElementById("plGroupResults").style.display="none";
+  plannerSettings.groupId=id;
+}
+
+// ── STATUS MAPPING ────────────────────────────────────────────────────────────
+const STATUS_TO_PCT={"Offen":0,"In Arbeit":50,"Erledigt":100};
+function pctToStatus(n){if(n>=100)return"Erledigt";if(n>=1)return"In Arbeit";return"Offen";}
+
+// ── LOG ───────────────────────────────────────────────────────────────────────
+function plLog(msg,color){
+  const log=document.getElementById("plExportLog");if(!log)return;
+  const line=document.createElement("div");line.style.color=color||"var(--muted)";line.textContent=msg;
+  log.appendChild(line);log.scrollTop=log.scrollHeight;
+}
+
+// ── EXPORT PREVIEW ────────────────────────────────────────────────────────────
+function buildExportPreview(){
+  const preview=document.getElementById("plExportPreview");
+  const synced=tasks.filter(t=>t.plannerTaskId).length;
+  const allSubs=tasks.flatMap(t=>t.subtasks||[]);
+  const mode=plannerSettings.mode||"auto";
+  const planId=plannerSettings.planId;
+  const groupId=plannerSettings.groupId;
+  let warn="";
+  if(mode==="auto"&&!groupId) warn+=`<br><span style="color:var(--overdue)">⚠ Keine Group-ID → Einstellungen öffnen</span>`;
+  if(!planId) warn+=`<br><span style="color:var(--today)">ℹ Plan wird beim Export neu angelegt</span>`;
+  preview.innerHTML=
+    `<strong>Plan:</strong> ${planId?`ID …${planId.slice(-10)}`:"Wird neu erstellt"}<br>`+
+    `<strong>Modus:</strong> ${mode==="auto"?`Auto (Group: ${groupId?`…${groupId.slice(-8)}`:"⚠ fehlt"})`:"Manuell (Plan-ID direkt)"}<br>`+
+    `<strong>Buckets:</strong> ${groups.length}<br>`+
+    `<strong>Aufgaben:</strong> ${tasks.length} (${synced} bereits sync'd, ${tasks.length-synced} neu)<br>`+
+    `<strong>Unteraufgaben:</strong> ${allSubs.length}`+warn;
+}
+
+// ── EXPORT → PLANNER ─────────────────────────────────────────────────────────
 async function doExportToPlanner(){
-  if(!plannerSettings.groupId){
-    alert("Bitte zuerst eine Microsoft 365 Gruppe (Group-ID) in den Einstellungen eintragen.");
-    switchPlTab("cfg"); return;
+  const mode=plannerSettings.mode||"auto";
+  if(mode==="auto"&&!plannerSettings.groupId){
+    alert("Bitte eine Microsoft 365 Gruppe in den Einstellungen auswählen.");switchPlTab("cfg");return;
   }
-  const exportBtn = document.getElementById("plExportBtn");
-  const progressWrap = document.getElementById("plExportProgress");
-  const progressTxt = document.getElementById("plExportProgressTxt");
-  const logWrap = document.getElementById("plExportLog");
-  exportBtn.style.display = "none";
-  progressWrap.style.display = "";
-  logWrap.style.display = "";
-  logWrap.innerHTML = "";
+  const exportBtn=document.getElementById("plExportBtn");
+  const progressWrap=document.getElementById("plExportProgress");
+  const progressTxt=document.getElementById("plExportProgressTxt");
+  const logWrap=document.getElementById("plExportLog");
+  exportBtn.style.display="none";progressWrap.style.display="";logWrap.style.display="";logWrap.innerHTML="";
 
   try{
-    // 1. Get or create plan
-    let planId = plannerSettings.planId;
+    // 1. Plan holen oder anlegen
+    let planId=plannerSettings.planId;
     if(!planId){
-      progressTxt.textContent = "Erstelle neuen Planner-Plan…";
-      plLog("▶ Lege neuen Plan an…");
-      const plan = await graphReq("POST","/planner/plans",{
-        owner: plannerSettings.groupId,
-        title: ptitle
-      });
-      planId = plan.id;
-      plannerSettings.planId = planId;
-      localStorage.setItem("ac26_planner", JSON.stringify(plannerSettings));
-      document.getElementById("plPlanId").value = planId;
-      plLog(`✓ Plan erstellt: …${planId.slice(-8)}`, "var(--accent)");
-    } else {
-      plLog(`✓ Nutze vorhandenen Plan: …${planId.slice(-8)}`, "var(--accent)");
-    }
-
-    // 2. Load existing buckets
-    progressTxt.textContent = "Lade Buckets…";
-    plLog("▶ Lade bestehende Buckets…");
-    const bucketsRes = await graphReq("GET",`/planner/plans/${planId}/buckets`);
-    const existingBuckets = bucketsRes.value || [];
-    const bucketMap = {}; // groupKey → bucketId
-
-    // Match buckets by name
-    existingBuckets.forEach(b=>{
-      const grp = groups.find(g=>g.name===b.name);
-      if(grp) bucketMap[grp.key] = b.id;
-    });
-
-    // 3. Create missing buckets
-    progressTxt.textContent = "Erstelle Buckets…";
-    for(let i=0; i<groups.length; i++){
-      const g = groups[i];
-      if(!bucketMap[g.key]){
-        plLog(`  + Bucket: ${g.name}`);
-        const bucket = await graphReq("POST","/planner/buckets",{
-          planId, name: g.name, orderHint: " !"
-        });
-        bucketMap[g.key] = bucket.id;
-        plLog(`  ✓ Bucket erstellt: ${g.name}`, "var(--accent)");
-      } else {
-        plLog(`  ✓ Bucket vorhanden: ${g.name}`, "var(--accent)");
-      }
-    }
-
-    // 4. Load existing tasks for plan
-    progressTxt.textContent = "Lade vorhandene Tasks…";
-    plLog("▶ Lade bestehende Planner-Tasks…");
-    const plannerTasksRes = await graphReq("GET",`/planner/plans/${planId}/tasks`);
-    const plannerTasks = plannerTasksRes.value || [];
-    // Build map: plannerTaskId → planner task
-    const plannerTaskMap = {};
-    plannerTasks.forEach(pt=>{ plannerTaskMap[pt.id] = pt; });
-
-    // 5. Export all tasks (and subtasks)
-    let created=0, updated=0, failed=0;
-    const allExportItems = [];
-    tasks.forEach(t=>{
-      allExportItems.push({item:t, bucketKey:t.group, isSubtask:false, parentTask:null});
-      if(t.subtasks&&t.subtasks.length){
-        t.subtasks.forEach((s,si)=>{
-          allExportItems.push({item:s, bucketKey:t.group, isSubtask:true, parentTask:t, subIdx:si});
-        });
-      }
-    });
-
-    for(let i=0; i<allExportItems.length; i++){
-      const {item, bucketKey, isSubtask, parentTask, subIdx} = allExportItems[i];
-      const bucketId = bucketMap[bucketKey];
-      if(!bucketId){ failed++; continue; }
-      const pct = STATUS_TO_PCT[item.status||"Offen"] ?? 0;
-      const title = isSubtask ? `[${esc(parentTask.task)}] ${item.task}` : item.task;
-      // Due date: end of day in ISO format
-      const dueDate = item.end ? new Date(item.end+"T23:59:59Z").toISOString() : null;
-
-      progressTxt.textContent = `Exportiere ${i+1}/${allExportItems.length}: ${item.task.slice(0,30)}`;
-
-      const existingPlannerTaskId = item.plannerTaskId;
-      const existingPlannerTask = existingPlannerTaskId ? plannerTaskMap[existingPlannerTaskId] : null;
-
-      if(existingPlannerTask){
-        // PATCH existing task
+      if(mode==="auto"){
+        progressTxt.textContent="Erstelle Plan…";plLog("▶ Lege neuen Plan an…");
         try{
-          const etag = existingPlannerTask["@odata.etag"];
-          await graphReq("PATCH",`/planner/tasks/${existingPlannerTaskId}`,{
-            percentComplete: pct,
-            dueDateTime: dueDate,
-            title
-          }, etag);
-          updated++;
-          plLog(`  ↑ Aktualisiert: ${item.task}`, "var(--muted)");
+          const grpCheck=await graphReq("GET",`/groups/${plannerSettings.groupId}?$select=id,displayName`);
+          plLog(`  ✓ Gruppe: ${grpCheck.displayName}`,"var(--accent)");
+          const plan=await graphReq("POST","/planner/plans",{owner:plannerSettings.groupId,title:ptitle});
+          planId=plan.id;
+          plannerSettings.planId=planId;
+          localStorage.setItem("ac26_planner",JSON.stringify(plannerSettings));
+          plLog(`  ✓ Plan erstellt: …${planId.slice(-10)}`,"var(--accent)");
+          document.getElementById("plSavedPlanRow").style.display="";
+          document.getElementById("plSavedPlanDisplay").textContent=`…${planId.slice(-16)}`;
         }catch(e){
-          plLog(`  ✗ Fehler beim Aktualisieren: ${item.task}: ${e.message}`, "var(--overdue)");
-          failed++;
-        }
-      } else {
-        // POST new task
-        try{
-          const newTask = await graphReq("POST","/planner/tasks",{
-            planId, bucketId, title, percentComplete: pct,
-            dueDateTime: dueDate,
-            assignments: buildAssignments(item)
-          });
-          // Store planner task id back in item
-          item.plannerTaskId = newTask.id;
-          // If this is a subtask, store on the subtask object in tasks[]
-          if(isSubtask && parentTask){
-            const parent = tasks.find(tt=>tt.id===parentTask.id);
-            if(parent&&parent.subtasks&&parent.subtasks[subIdx]) parent.subtasks[subIdx].plannerTaskId = newTask.id;
-          } else if(!isSubtask){
-            const parent = tasks.find(tt=>tt.id===item.id);
-            if(parent) parent.plannerTaskId = newTask.id;
+          const msg=e.message||"";
+          plLog(`✗ Plan anlegen fehlgeschlagen: ${msg}`,"var(--overdue)");
+          if(msg.includes("400")||msg.includes("403")){
+            plLog("","");
+            plLog("💡 Ursachen für diesen Fehler:","var(--today)");
+            plLog("  1. Die Azure App hat keine 'Tasks.ReadWrite' Berechtigung","var(--today)");
+            plLog("  2. Die Group-ID ist falsch oder kein Planner-fähiger Plan möglich","var(--today)");
+            plLog("  3. Admin-Zustimmung für Tasks.ReadWrite fehlt noch","var(--today)");
+            plLog("","");
+            plLog("💡 Lösung: Lege den Plan manuell in Planner an, kopiere","var(--muted)");
+            plLog("   die Plan-ID aus der URL und wähle 'Manuell'-Modus.","var(--muted)");
           }
-          created++;
-          plLog(`  + Erstellt: ${item.task}`, "var(--accent)");
-        }catch(e){
-          plLog(`  ✗ Fehler beim Erstellen: ${item.task}: ${e.message}`, "var(--overdue)");
-          failed++;
+          exportBtn.style.display="";progressWrap.style.display="none";return;
         }
+      } else {
+        plLog("✗ Keine Plan-ID im Manuell-Modus eingetragen.","var(--overdue)");
+        exportBtn.style.display="";progressWrap.style.display="none";return;
+      }
+    } else {
+      plLog(`✓ Plan: …${planId.slice(-10)}`,"var(--accent)");
+    }
+
+    // 2. Buckets laden
+    progressTxt.textContent="Lade Buckets…";
+    const bucketsRes=await graphReq("GET",`/planner/plans/${planId}/buckets`);
+    const existingBuckets=bucketsRes.value||[];
+    const bucketMap={};
+    existingBuckets.forEach(b=>{const grp=groups.find(g=>g.name===b.name);if(grp)bucketMap[grp.key]=b.id;});
+
+    // 3. Fehlende Buckets erstellen
+    for(const g of groups){
+      if(!bucketMap[g.key]){
+        const bucket=await graphReq("POST","/planner/buckets",{planId,name:g.name,orderHint:" !"});
+        bucketMap[g.key]=bucket.id;
+        plLog(`  + Bucket: ${g.name}`,"var(--accent)");
       }
     }
 
-    // 6. Save updated plannerTaskIds
-    save();
+    // 4. Vorhandene Planner-Tasks laden
+    progressTxt.textContent="Lade Tasks…";
+    const ptRes=await graphReq("GET",`/planner/plans/${planId}/tasks`);
+    const ptMap={};(ptRes.value||[]).forEach(pt=>ptMap[pt.id]=pt);
 
-    plLog(``, "");
-    plLog(`✓ Export abgeschlossen: ${created} erstellt, ${updated} aktualisiert, ${failed} Fehler.`, failed>0?"var(--today)":"var(--accent)");
-    progressTxt.textContent = `Fertig: ${created} erstellt, ${updated} aktualisiert${failed>0?`, ${failed} Fehler`:""}`;
+    // 5. Alle Items exportieren
+    const items=[];
+    tasks.forEach(t=>{
+      items.push({item:t,bucketKey:t.group,isSubtask:false,parentTask:null,subIdx:-1});
+      (t.subtasks||[]).forEach((s,si)=>items.push({item:s,bucketKey:t.group,isSubtask:true,parentTask:t,subIdx:si}));
+    });
+
+    let created=0,updated=0,failed=0;
+    for(let i=0;i<items.length;i++){
+      const {item,bucketKey,isSubtask,parentTask,subIdx}=items[i];
+      const bucketId=bucketMap[bucketKey];
+      if(!bucketId){failed++;plLog(`  ✗ Kein Bucket: ${item.task}`,"var(--overdue)");continue;}
+      const pct=STATUS_TO_PCT[item.status||"Offen"]??0;
+      const title=isSubtask?`[${parentTask.task.slice(0,40)}] ${item.task}`:item.task;
+      const dueDate=item.end?new Date(item.end+"T23:59:59Z").toISOString():null;
+      progressTxt.textContent=`${i+1}/${items.length}: ${item.task.slice(0,30)}`;
+      const existingPt=item.plannerTaskId?ptMap[item.plannerTaskId]:null;
+      if(existingPt){
+        try{
+          await graphReq("PATCH",`/planner/tasks/${item.plannerTaskId}`,{percentComplete:pct,dueDateTime:dueDate,title},existingPt["@odata.etag"]);
+          updated++;plLog(`  ↑ ${title.slice(0,50)}`,"var(--muted)");
+        }catch(e){failed++;plLog(`  ✗ Update: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");}
+      } else {
+        try{
+          const nt=await graphReq("POST","/planner/tasks",{planId,bucketId,title,percentComplete:pct,dueDateTime:dueDate});
+          item.plannerTaskId=nt.id;
+          if(isSubtask){const par=tasks.find(tt=>tt.id===parentTask.id);if(par?.subtasks?.[subIdx])par.subtasks[subIdx].plannerTaskId=nt.id;}
+          else{const par=tasks.find(tt=>tt.id===item.id);if(par)par.plannerTaskId=nt.id;}
+          created++;plLog(`  + ${title.slice(0,50)}`,"var(--accent)");
+        }catch(e){failed++;plLog(`  ✗ Erstellen: ${item.task.slice(0,35)}: ${e.message.slice(0,80)}`,"var(--overdue)");}
+      }
+    }
+
+    save();
+    plLog("","");
+    plLog(`✓ Fertig: ${created} erstellt, ${updated} aktualisiert${failed>0?`, ${failed} Fehler`:""}`,failed>0?"var(--today)":"var(--accent)");
+    progressTxt.textContent=`Fertig: ${created} erstellt, ${updated} aktualisiert${failed>0?`, ${failed} Fehler`:""}`;
 
   }catch(e){
-    plLog(`✗ Fehler: ${e.message}`, "var(--overdue)");
-    progressTxt.textContent = "Fehler aufgetreten";
-    console.error("Planner export error:", e);
+    plLog(`✗ ${e.message}`,"var(--overdue)");console.error("Planner export:",e);
   }
-  exportBtn.style.display = "";
-  progressWrap.style.display = "none";
-}
-
-function buildAssignments(item){
-  // Assign persons who have an email (from MSAL sync)
-  const assignments = {};
-  (item.persons||[]).forEach(name=>{
-    const p = PERSONS.find(pp=>pp.name===name);
-    if(p&&p.email){
-      // Need userId, not email — we store it if available
-      if(p.userId) assignments[p.userId] = {"@odata.type":"#microsoft.graph.plannerAssignment","orderHint":" !"};
-    }
-  });
-  return assignments;
+  exportBtn.style.display="";progressWrap.style.display="none";
 }
 
 // ── IMPORT ← PLANNER ─────────────────────────────────────────────────────────
-let _plannerImportData = null; // cached preview data
+let _plannerImportData=null;
 
 async function previewImportFromPlanner(){
-  const planId = plannerSettings.planId;
-  if(!planId){ alert("Kein Plan konfiguriert. Bitte erst exportieren."); return; }
-  const previewBtn = document.getElementById("plPreviewBtn");
-  const progressWrap = document.getElementById("plImportProgress");
-  const progressTxt = document.getElementById("plImportProgressTxt");
-  const previewDiv = document.getElementById("plImportPreview");
-  const importBtn = document.getElementById("plImportBtn");
-  previewBtn.style.display = "none";
-  progressWrap.style.display = "";
-  progressTxt.textContent = "Lese Planner-Tasks…";
-  importBtn.style.display = "none";
-  _plannerImportData = null;
-
+  const planId=plannerSettings.planId;
+  if(!planId){alert("Kein Plan konfiguriert. Bitte erst exportieren.");return;}
+  const previewBtn=document.getElementById("plPreviewBtn");
+  const progressWrap=document.getElementById("plImportProgress");
+  const previewDiv=document.getElementById("plImportPreview");
+  const importBtn=document.getElementById("plImportBtn");
+  previewBtn.style.display="none";progressWrap.style.display="";importBtn.style.display="none";_plannerImportData=null;
   try{
-    const res = await graphReq("GET",`/planner/plans/${planId}/tasks`);
-    const plannerTasks = res.value || [];
-    // Match planner tasks to our tasks
-    const changes = [];
-    const allItems = [];
+    const res=await graphReq("GET",`/planner/plans/${planId}/tasks`);
+    const plannerTasks=res.value||[];
+    const allItems=[];
     tasks.forEach(t=>{
-      allItems.push({item:t, label:t.task});
-      (t.subtasks||[]).forEach((s,si)=>{ allItems.push({item:s, label:`${t.task} > ${s.task}`}); });
+      allItems.push({item:t,label:t.task});
+      (t.subtasks||[]).forEach(s=>allItems.push({item:s,label:`${t.task} › ${s.task}`}));
     });
-
+    const changes=[];
     plannerTasks.forEach(pt=>{
-      const newStatus = PCT_TO_STATUS[pt.percentComplete] ?? "Offen";
-      // Find matching local item by plannerTaskId
-      const found = allItems.find(a=>a.item.plannerTaskId===pt.id);
-      if(found){
-        const oldStatus = found.item.status || "Offen";
-        if(oldStatus !== newStatus){
-          changes.push({label:found.label, oldStatus, newStatus, plannerTask:pt, localItem:found.item});
-        }
-      }
+      const ns=pctToStatus(pt.percentComplete);
+      const found=allItems.find(a=>a.item.plannerTaskId===pt.id);
+      if(found&&(found.item.status||"Offen")!==ns) changes.push({label:found.label,oldStatus:found.item.status||"Offen",newStatus:ns,localItem:found.item});
     });
-
-    _plannerImportData = {changes};
-    progressWrap.style.display = "none";
-    previewBtn.style.display = "";
-
-    if(changes.length===0){
-      previewDiv.innerHTML = `<span style="color:var(--accent)">✓ Alles aktuell – keine Status-Änderungen im Planner.</span>`;
+    _plannerImportData={changes};
+    progressWrap.style.display="none";previewBtn.style.display="";
+    if(!changes.length){
+      previewDiv.innerHTML=`<span style="color:var(--accent)">✓ Alles aktuell – keine Änderungen im Planner.</span>`;
     } else {
-      let html = `<strong style="color:var(--text)">${changes.length} Status-Änderung${changes.length!==1?"en":""} gefunden:</strong><br><br>`;
+      let html=`<strong style="color:var(--text)">${changes.length} Änderung${changes.length!==1?"en":""} gefunden:</strong><br><br>`;
       changes.forEach(c=>{
-        const stColor = c.newStatus==="Erledigt"?"var(--accent)":c.newStatus==="In Arbeit"?"var(--today)":"var(--muted)";
-        html += `<div style="margin-bottom:4px"><span style="color:var(--text)">${esc(c.label)}</span><br>`;
-        html += `<span style="opacity:.6">${esc(c.oldStatus)}</span> → <span style="color:${stColor};font-weight:600">${esc(c.newStatus)}</span></div>`;
+        const sc=c.newStatus==="Erledigt"?"var(--accent)":c.newStatus==="In Arbeit"?"var(--today)":"var(--muted)";
+        html+=`<div style="margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--border)"><span style="color:var(--text)">${esc(c.label)}</span><br><span style="opacity:.6;font-size:10px">${esc(c.oldStatus)}</span> → <span style="color:${sc};font-weight:600;font-size:10px">${esc(c.newStatus)}</span></div>`;
       });
-      previewDiv.innerHTML = html;
-      importBtn.style.display = "";
+      previewDiv.innerHTML=html;importBtn.style.display="";
     }
-
   }catch(e){
-    progressWrap.style.display = "none";
-    previewBtn.style.display = "";
-    previewDiv.innerHTML = `<span style="color:var(--overdue)">✗ Fehler: ${esc(e.message)}</span>`;
-    console.error("Planner import preview error:", e);
+    progressWrap.style.display="none";previewBtn.style.display="";
+    previewDiv.innerHTML=`<span style="color:var(--overdue)">✗ ${esc(e.message)}</span>`;
   }
 }
 
 async function doImportFromPlanner(){
-  if(!_plannerImportData||!_plannerImportData.changes.length) return;
-  const {changes} = _plannerImportData;
-  let applied = 0;
-  changes.forEach(c=>{
-    c.localItem.status = c.newStatus;
-    applied++;
+  if(!_plannerImportData?.changes.length)return;
+  _plannerImportData.changes.forEach(c=>{c.localItem.status=c.newStatus;});
+  const n=_plannerImportData.changes.length;_plannerImportData=null;
+  save();render();
+  document.getElementById("plImportPreview").innerHTML=`<span style="color:var(--accent)">✓ ${n} Status${n!==1?"änderungen":"änderung"} übernommen.</span>`;
+  document.getElementById("plImportBtn").style.display="none";
+}
+
+// ── TAB SWITCHER ──────────────────────────────────────────────────────────────
+function switchPlTab(tab){
+  const tabs={cfg:"plTabCfg",exp:"plTabExp",imp:"plTabImp"};
+  const btns={cfg:"plTabCfgBtn",exp:"plTabExpBtn",imp:"plTabImpBtn"};
+  Object.keys(tabs).forEach(t=>{
+    document.getElementById(tabs[t]).style.display=t===tab?"":"none";
+    const btn=document.getElementById(btns[t]);
+    if(btn){btn.style.borderBottomColor=t===tab?"var(--accent)":"transparent";btn.style.color=t===tab?"var(--text)":"var(--muted)";btn.style.fontWeight=t===tab?"600":"400";}
   });
-  _plannerImportData = null;
-  save(); render();
-  document.getElementById("plImportPreview").innerHTML = `<span style="color:var(--accent)">✓ ${applied} Status${applied!==1?"änderungen":"änderung"} übernommen.</span>`;
-  document.getElementById("plImportBtn").style.display = "none";
+  if(tab==="exp") buildExportPreview();
+  if(tab==="imp"){document.getElementById("plImportPreview").innerHTML='<span style="opacity:.5">← Klicke „Vorschau laden" um Planner-Status zu lesen</span>';document.getElementById("plImportBtn").style.display="none";}
 }
 
 loadPlannerSettings();
-
 // ── END PLANNER ───────────────────────────────────────────────────────────────
 
 render();
