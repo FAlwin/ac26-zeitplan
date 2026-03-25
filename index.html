@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meilensteinplan · AC 2026</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a4738'/%3E%3Crect x='7' y='10' width='18' height='2.5' rx='1.25' fill='%234dd9a0'/%3E%3Crect x='7' y='15' width='13' height='2.5' rx='1.25' fill='%234dd9a0' opacity='.7'/%3E%3Crect x='7' y='20' width='16' height='2.5' rx='1.25' fill='%234dd9a0' opacity='.5'/%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -26,28 +25,12 @@
 body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* ── HEADER ── */
-.header{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;flex-shrink:0}
-.hdr-top{display:flex;align-items:center;gap:8px;min-width:0}
-.title-display{font-size:17px;font-weight:700;letter-spacing:-.5px;cursor:pointer;border-bottom:1px dashed transparent;padding-bottom:1px;transition:border-color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.header{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.title-display{font-size:17px;font-weight:700;letter-spacing:-.5px;cursor:pointer;border-bottom:1px dashed transparent;padding-bottom:1px;transition:border-color .15s;white-space:nowrap}
 .title-display:hover{border-bottom-color:var(--dim)}
-.title-input{font-size:17px;font-weight:700;letter-spacing:-.5px;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--text);outline:none;font-family:'Syne',sans-serif;flex:1;min-width:0}
-.hdr-hint{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);flex-shrink:0}
-.hdr-today{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--today);flex-shrink:0;white-space:nowrap;padding:2px 7px;border-radius:4px;background:rgba(176,96,0,.08);border:1px solid rgba(176,96,0,.15)}
-@media(prefers-color-scheme:dark){.hdr-today{background:rgba(245,166,35,.08);border-color:rgba(245,166,35,.15)}}
-.hdr-r{display:flex;align-items:center;gap:6px}
-.btn-pdf{padding:5px 12px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'Syne',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .12s;flex-shrink:0}
-.btn-pdf:hover{color:var(--text);background:var(--surface2)}
-.btn-pdf svg{flex-shrink:0}
-/* Desktop: single row */
-@media(min-width:601px){
-  .header{flex-direction:row;align-items:center;gap:10px}
-  .hdr-top{flex:1}
-}
-@media(max-width:600px){
-  .header{padding:8px 12px}
-  .hdr-hint{display:none}
-  .title-display,.title-input{font-size:15px}
-}
+.title-input{font-size:17px;font-weight:700;letter-spacing:-.5px;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--text);outline:none;font-family:'Syne',sans-serif;min-width:200px}
+.hdr-hint{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim)}
+.hdr-r{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0}
 
 /* ── TOOLBAR ── */
 .toolbar{padding:7px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;flex-wrap:nowrap;flex-shrink:0;background:var(--surface);overflow-x:auto;scrollbar-width:none}
@@ -71,31 +54,13 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);height
 .zl{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);min-width:33px;text-align:right}
 
 /* mobile toolbar fade hint */
-.toolbar-wrap{position:relative;flex-shrink:0;overflow-x:hidden;max-width:100vw}
+.toolbar-wrap{position:relative;flex-shrink:0}
 .toolbar-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:24px;background:linear-gradient(to right,transparent,var(--surface));pointer-events:none}
 .toolbar-label{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;white-space:nowrap}
 .toolbar-ansicht{background:var(--surface);border-bottom:1px solid var(--border)}
 .toolbar-inhalt{background:var(--bg);border-bottom:2px solid var(--border2)}
 
-/* ── PRINT ── */
-@media print{
-  body{height:auto;overflow:visible}
-  .header,.toolbar-wrap,.stats,.due-banner,.dp,.mo{display:none!important}
-  .main{display:block;overflow:visible}
-  .gantt-wrap{overflow:visible}
-  .gantt-scroll{overflow:visible;height:auto}
-  .gantt-inner{display:block}
-  .rl{position:relative!important;left:auto!important}
-  .gantt-hdr-row{position:relative!important;top:auto!important}
-}
-.due-banner{padding:6px 16px;background:rgba(176,96,0,.08);border-bottom:1px solid rgba(176,96,0,.2);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--today);display:none;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
-.due-banner.visible{display:flex}
-.due-chip{padding:1px 7px;border-radius:3px;background:rgba(176,96,0,.12);border:1px solid rgba(176,96,0,.25);cursor:pointer;white-space:nowrap}
-.due-chip:hover{background:rgba(176,96,0,.2)}
-@media(prefers-color-scheme:dark){
-  .due-banner{background:rgba(245,166,35,.07);border-color:rgba(245,166,35,.18)}
-  .due-chip{background:rgba(245,166,35,.1);border-color:rgba(245,166,35,.22)}
-}
+/* ── STATS ── */
 .stats{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
 .stats::-webkit-scrollbar{display:none}
 .stat{padding:7px 14px;border-right:1px solid var(--border);text-align:center;flex-shrink:0}
@@ -286,6 +251,11 @@ body.classic .sub-toggle{display:none!important}
 .person-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;background:var(--surface2);border:1px solid var(--border2);color:var(--text);flex-shrink:0;white-space:nowrap}
 .pa{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0}
 /* ── COMMENTS ── */
+.comment-item{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 11px;margin-bottom:7px}
+.comment-meta{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px}
+.comment-text{font-size:12px;line-height:1.5;color:var(--text);word-break:break-word}
+.comment-inp{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:7px 9px;color:var(--text);font-size:12px;font-family:'Syne',sans-serif;resize:vertical;min-height:56px;outline:none;box-sizing:border-box}
+.comment-inp:focus{border-color:var(--accent)}
 
 .draw-ghost{position:absolute;top:4px;height:calc(100% - 8px);background:var(--accent);opacity:.25;border-radius:3px;pointer-events:none;z-index:4;border:2px dashed var(--accent)}
 .drag-tooltip{position:fixed;background:var(--text);color:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 8px;border-radius:4px;pointer-events:none;z-index:999;white-space:nowrap;transform:translate(-50%,-130%);font-weight:500}
@@ -334,16 +304,24 @@ body.classic .sub-toggle{display:none!important}
 .pdf-preview{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8}
 .pdf-preview strong{color:var(--text)}
 
-/* ── GROUP BADGE (flat mode) ── */
-.grp-badge{display:inline-flex;align-items:center;justify-content:center;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:'IBM Plex Mono',monospace;flex-shrink:0;white-space:nowrap;letter-spacing:.3px;border:1px solid transparent;opacity:.85}
-
 /* ── DRAG & DROP ── */
+.drag-handle{width:20px;height:100%;display:flex;align-items:center;justify-content:center;cursor:grab;color:var(--muted);font-size:14px;flex-shrink:0;opacity:0;transition:opacity .12s;user-select:none;letter-spacing:-1px}
+.drag-handle:active{cursor:grabbing}
+.trow:hover .drag-handle,.grow .rl:hover .drag-handle{opacity:1}
+@media(hover:none){.drag-handle{opacity:.5}}
+.drag-over-top{border-top:2px solid var(--accent)!important}
+.drag-over-bot{border-bottom:2px solid var(--accent)!important}
+.dragging{opacity:.4}
+
 /* ── MANAGE GROUPS MODAL ── */
 #manageModal .md{width:440px}
 .grp-list-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;margin-bottom:6px;cursor:default;transition:background .1s}
 .grp-list-item.drag-over-top{border-top:2px solid var(--accent)}
 .grp-list-item.drag-over-bot{border-bottom:2px solid var(--accent)}
 .grp-list-item.dragging{opacity:.4}
+.grp-drag-handle{width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:grab;border-radius:5px;background:var(--surface3);border:1px solid var(--border2);color:var(--text);font-size:14px;flex-shrink:0;letter-spacing:-1px;transition:background .1s}
+.grp-drag-handle:hover{background:var(--accent);color:var(--accent-fg)}
+.grp-drag-handle:active{cursor:grabbing}
 .grp-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .grp-list-name{flex:1;font-size:13px;font-weight:600}
 .grp-list-count{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)}
@@ -353,24 +331,29 @@ body.classic .sub-toggle{display:none!important}
 <body>
 
 <div class="header">
-  <div class="hdr-top">
-    <span id="titleDisplay" class="title-display" onclick="startEditTitle()" title="Klicken zum Bearbeiten"></span>
-    <input id="titleInput" class="title-input" style="display:none" onblur="endEditTitle()" onkeydown="if(event.key==='Enter')endEditTitle()">
-    <span id="hdrToday" class="hdr-today"></span>
-  </div>
+  <span id="titleDisplay" class="title-display" onclick="startEditTitle()" title="Klicken zum Bearbeiten"></span>
+  <input id="titleInput" class="title-input" style="display:none" onblur="endEditTitle()" onkeydown="if(event.key==='Enter')endEditTitle()">
+  <span class="hdr-hint">✎</span>
   <div class="hdr-r">
     <div class="mode-toggle">
       <button class="mode-btn active" data-mode="classic" onclick="setMode('classic')">Übersicht</button>
       <button class="mode-btn" data-mode="interactive" onclick="setMode('interactive')">Planung</button>
     </div>
-    <button class="btn-pdf" onclick="openPdfModal()">
-      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6.5 1v7M6.5 8l-2.5-2.5M6.5 8l2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M2 10h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      PDF
-    </button>
+    <button class="btn btn-g" onclick="openPdfModal()">⬇ PDF exportieren</button>
   </div>
+</div>
+
+<!-- Auth Banner -->
+<div class="auth-banner" id="authBanner">
+  <div class="auth-avatar" id="authAvatar" style="display:none"></div>
+  <span class="auth-name" id="authName">Nicht angemeldet</span>
+  <div class="auth-status" id="authStatus" style="display:none">
+    <div class="auth-dot offline" id="authDot"></div>
+    <span id="authStatusText">–</span>
+    <button class="auth-btn" onclick="manualSync()" id="syncBtn" title="Jetzt synchronisieren">↺ Sync</button>
+    <button class="auth-btn" onclick="msalLogout()">Abmelden</button>
+  </div>
+  <button class="auth-btn login" id="loginBtn" onclick="msalLogin()">⊙ Mit Microsoft anmelden</button>
 </div>
 
 <!-- Classic bar hidden - classic mode is the full UI -->
@@ -405,20 +388,9 @@ body.classic .sub-toggle{display:none!important}
     <select class="fsel" onchange="setFilter(this.value)" id="filterSel"><option value="ALL">Alle Teams</option></select>
     <select class="fsel status-stat" onchange="setSF(this.value)"><option value="ALL">Alle Status</option><option>Offen</option><option>In Arbeit</option><option>Erledigt</option></select>
     <select class="fsel persons-only" id="filterPerson" onchange="setFP(this.value)"><option value="ALL">Alle Personen</option></select>
-    <select class="fsel" id="sortSel" onchange="setSort(this.value)">
-      <option value="start_asc">Startdatum</option>
-      <option value="status">Status</option>
-      <option value="alpha_asc">Name A–Z</option>
-      <option value="alpha_desc">Name Z–A</option>
-    </select>
     <div class="sep"></div>
     <button class="btn btn-g" onclick="openManageModal()">⊞ Gruppen verwalten</button>
     <button class="btn btn-g persons-only" onclick="openPersonsModal()">👤 Personen</button>
-    <div class="sep"></div>
-    <div class="vg">
-      <button class="vb active" id="modeGrpBtn" onclick="setGroupedMode(true)" title="Aufgaben nach Teams gruppiert">Gruppiert</button>
-      <button class="vb" id="modeFlatBtn" onclick="setGroupedMode(false)" title="Alle Aufgaben in einer Liste">Gesamt</button>
-    </div>
     <div class="sep"></div>
     <button class="btn btn-p" onclick="openTaskModal()">+ Aufgabe</button>
   </div>
@@ -439,13 +411,8 @@ body.classic .sub-toggle{display:none!important}
     <span class="status-legend" style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--dim);outline:1.5px solid var(--muted);display:inline-block;flex-shrink:0"></span>Offen</span>
     <span class="status-legend" style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--today);display:inline-block;flex-shrink:0"></span>In Arbeit</span>
     <span class="status-legend" style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;flex-shrink:0"></span>Erledigt</span>
-    <span class="status-legend" style="display:flex;align-items:center;gap:5px;border-left:1px solid var(--border);padding-left:14px"><span style="background:var(--surface2);border:1px solid var(--border2);padding:1px 7px;border-radius:3px;font-size:9px">&nbsp;</span>= Gruppen-Kürzel (Gesamt-Modus)</span>
+    <span class="status-legend" style="display:flex;align-items:center;gap:5px;border-left:1px solid var(--border);padding-left:14px"><span style="background:var(--surface2);border:1px solid var(--border2);padding:1px 7px;border-radius:3px;font-size:9px">&nbsp;</span>= Kürzel (Zuständig-Feld)</span>
   </div>
-</div>
-
-<div class="due-banner" id="dueBanner">
-  <span>⏰ Bald fällig:</span>
-  <span id="dueChips"></span>
 </div>
 
 <div class="main">
@@ -472,16 +439,13 @@ body.classic .sub-toggle{display:none!important}
       <div class="fl"><label class="flb">Start *</label><input class="fi" id="fStart" type="date"></div>
       <div class="fl"><label class="flb">Ende *</label><input class="fi" id="fEnd" type="date"></div>
     </div>
-    <div class="fl dp-planning" id="fProgressWrap" style="display:none">
-      <label class="flb" style="display:flex;justify-content:space-between">Fortschritt <span id="fProgressLbl" style="font-weight:400;color:var(--muted)">0%</span></label>
-      <div id="fProgressAuto" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:4px 0">Wird automatisch aus Unteraufgaben berechnet</div>
+    <div class="fl dp-planning"><label class="flb" style="display:flex;justify-content:space-between">Fortschritt <span id="fProgressLbl" style="font-weight:400;color:var(--muted)">0%</span></label>
       <input type="range" id="fProgress" min="0" max="100" step="5" value="0" style="width:100%;accent-color:var(--accent)" oninput="document.getElementById('fProgressLbl').textContent=this.value+'%'">
     </div>
     <div class="fl dp-planning"><label class="flb">Verantwortliche</label>
-      <div id="fTeamBtns" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
-      <div id="fPersons" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+      <div id="fPersons" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0"></div>
     </div>
-    <div class="fl" style="display:none"><label class="flb">Kürzel / Zuständig <span style="opacity:.6">(Badge in der Zeile)</span></label><input class="fi" id="fAsgn" placeholder="z.B. GT, LT, Media..."></div>
+    <div class="fl"><label class="flb">Kürzel / Zuständig <span style="opacity:.6">(Badge in der Zeile)</span></label><input class="fi" id="fAsgn" placeholder="z.B. GT, LT, Media..."></div>
     <div class="fl"><label class="flb">Notizen</label><textarea class="ft" id="fNotes" placeholder="Schritte, Hinweise..."></textarea></div>
     <div class="fl dp-planning">
       <label class="flb">Unteraufgaben</label>
@@ -506,7 +470,7 @@ body.classic .sub-toggle{display:none!important}
         <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">eigene Farbe</span>
       </div>
     </div>
-    <div class="fl" id="gKeyRow"><label class="flb">Kürzel <span style="opacity:.6">(Badge im Gesamt-Modus, max. 5 Zeichen)</span></label><input class="fi" id="gKey" placeholder="z.B. MEIL, GEIS, PR" style="text-transform:uppercase" maxlength="5"></div>
+    <div class="fl" id="gKeyRow" style="display:none"><label class="flb">Kürzel (intern)</label><input class="fi" id="gKey" placeholder="z.B. MUSIK" style="text-transform:uppercase"></div>
     <div class="fa">
       <button class="btn btn-d" id="gDelBtn" onclick="deleteGroup()" style="margin-right:auto">Löschen</button>
       <button class="btn btn-g" onclick="closeModal('groupModal')">Abbrechen</button>
@@ -520,7 +484,7 @@ body.classic .sub-toggle{display:none!important}
   <div class="md" id="manageModalInner" style="width:440px">
     <button class="mdx" onclick="closeModal('manageModal')">✕</button>
     <div class="mdtit">Gruppen verwalten</div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:14px;font-family:'IBM Plex Mono',monospace">✎ zum Bearbeiten · + zum Hinzufügen</p>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px;font-family:'IBM Plex Mono',monospace">Ziehen zum Sortieren · ✎ zum Bearbeiten · + zum Hinzufügen</p>
     <div id="grpListWrap"></div>
     <div class="fa" style="justify-content:flex-start;margin-top:16px">
       <button class="btn btn-p" onclick="closeModal('manageModal');openGroupModal()">+ Neue Gruppe</button>
@@ -531,7 +495,7 @@ body.classic .sub-toggle{display:none!important}
 
 <!-- SUBTASK MODAL -->
 <div class="mo" id="subModal" onclick="cmo(event,'subModal')">
-  <div class="md" style="width:480px">
+  <div class="md" style="width:420px">
     <button class="mdx" onclick="closeModal('subModal')">✕</button>
     <div class="mdtit" id="subMdTit">Unteraufgabe</div>
     <input type="hidden" id="subParentId">
@@ -543,13 +507,8 @@ body.classic .sub-toggle{display:none!important}
     </div>
     <div class="f2">
       <div class="fl"><label class="flb">Status</label><select class="fs" id="subStatus"><option>Offen</option><option>In Arbeit</option><option>Erledigt</option></select></div>
-      <div class="fl" style="display:none"><label class="flb">Zuständig</label><input class="fi" id="subAsgn" placeholder="z.B. GT..."></div>
+      <div class="fl"><label class="flb">Zuständig</label><input class="fi" id="subAsgn" placeholder="z.B. GT..."></div>
     </div>
-    <div class="fl"><label class="flb">Verantwortliche</label>
-      <div id="subTeamBtns" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px"></div>
-      <div id="subPersons" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
-    </div>
-    <div class="fl"><label class="flb">Notizen</label><textarea class="ft" id="subNotes" placeholder="Hinweise..." style="min-height:50px"></textarea></div>
     <div class="fa">
       <button class="btn btn-d" id="subDelBtn" onclick="deleteSubtask()" style="margin-right:auto">Löschen</button>
       <button class="btn btn-g" onclick="closeModal('subModal')">Abbrechen</button>
@@ -560,40 +519,22 @@ body.classic .sub-toggle{display:none!important}
 
 <!-- PERSONS MODAL -->
 <div class="mo" id="personsModal" onclick="cmo(event,'personsModal')">
-  <div class="md" style="width:460px">
+  <div class="md" style="width:420px">
     <button class="mdx" onclick="closeModal('personsModal')">✕</button>
-    <div class="mdtit">Personen & Teams</div>
-    <!-- Tabs -->
-    <div style="display:flex;gap:0;border-bottom:2px solid var(--border2);margin-bottom:14px">
-      <button id="tabPersonsBtn" onclick="switchPersonTab('persons')" style="padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:none;border:none;border-bottom:2px solid var(--accent);margin-bottom:-2px;color:var(--text);font-weight:600;cursor:pointer">Personen</button>
-      <button id="tabTeamsBtn" onclick="switchPersonTab('teams')" style="padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted);cursor:pointer">Teams</button>
-    </div>
-    <!-- Personen Tab -->
-    <div id="tabPersons">
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:'IBM Plex Mono',monospace">Personen erscheinen als Verantwortliche bei Aufgaben und im Filter.</p>
-      <div id="personsListWrap"></div>
-      <div style="border-top:1px solid var(--border2);margin-top:12px;padding-top:12px">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Neue Person</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input class="fi" id="newPersonName" placeholder="Name…" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')addPerson()">
-          <input type="color" id="newPersonColor" value="#1a7a55" style="width:32px;height:32px;padding:2px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);cursor:pointer;flex-shrink:0">
+    <div class="mdtit">Personen verwalten</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px;font-family:'IBM Plex Mono',monospace">Personen erscheinen als Verantwortliche bei Aufgaben und im Filter.</p>
+    <div id="personsListWrap"></div>
+    <div style="border-top:1px solid var(--border2);margin-top:14px;padding-top:14px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Neue Person</div>
+      <div class="f2" style="gap:8px">
+        <div class="fl" style="flex:1"><input class="fi" id="newPersonName" placeholder="Name…" onkeydown="if(event.key==='Enter')addPerson()"></div>
+        <div class="fl" style="flex:0 0 auto;gap:6px;display:flex;align-items:center">
+          <input type="color" id="newPersonColor" value="#1a7a55" style="width:32px;height:32px;padding:2px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);cursor:pointer">
           <button class="btn btn-p" onclick="addPerson()">+ Hinzufügen</button>
         </div>
       </div>
     </div>
-    <!-- Teams Tab -->
-    <div id="tabTeams" style="display:none">
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:'IBM Plex Mono',monospace">Teams sind Gruppen von Personen die du einer Aufgabe auf einmal zuweisen kannst.</p>
-      <div id="teamsListWrap"></div>
-      <div style="border-top:1px solid var(--border2);margin-top:12px;padding-top:12px">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Neues Team</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input class="fi" id="newTeamName" placeholder="Teamname…" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')addTeam()">
-          <button class="btn btn-p" onclick="addTeam()">+ Erstellen</button>
-        </div>
-      </div>
-    </div>
-    <div class="fa" style="margin-top:12px">
+    <div class="fa" style="margin-top:4px">
       <button class="btn btn-g" onclick="closeModal('personsModal')">Schließen</button>
     </div>
   </div>
@@ -622,30 +563,293 @@ body.classic .sub-toggle{display:none!important}
     </div>
     <div class="fa">
       <button class="btn btn-g" onclick="closeModal('pdfModal')">Abbrechen</button>
-      <button class="btn btn-p" id="pdfExportBtn" onclick="doExportPDF()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><path d="M6.5 1v7M6.5 8l-2.5-2.5M6.5 8l2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> A4 Querformat exportieren</button>
+      <button class="btn btn-p" id="pdfExportBtn" onclick="doExportPDF()">⬇ A4 Querformat exportieren</button>
     </div>
   </div>
 </div>
 
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<style>@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── AUTH BANNER ── */
+.auth-banner{
+  display:flex;align-items:center;gap:10px;padding:7px 20px;
+  background:var(--surface);border-bottom:1px solid var(--border2);
+  font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);
+  flex-shrink:0;
+}
+.auth-avatar{width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent-fg);flex-shrink:0}
+.auth-name{color:var(--text);font-weight:500}
+.auth-status{display:flex;align-items:center;gap:6px;margin-left:auto}
+.auth-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.auth-dot.synced{background:#2ecc71}
+.auth-dot.syncing{background:var(--today);animation:pulse 1s ease-in-out infinite}
+.auth-dot.offline{background:var(--dim)}
+.auth-dot.error{background:#c0392b}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.auth-btn{padding:3px 10px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:10px;cursor:pointer;transition:all .12s}
+.auth-btn:hover{background:var(--surface2);color:var(--text)}
+.auth-btn.login{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.auth-btn.login:hover{opacity:.88}</style>
 
 <!-- LIBS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 
 <script>
+// ── MSAL / SHAREPOINT CONFIG ──────────────────────────────────────────────────
+const MSAL_CONFIG = {
+  auth: {
+    clientId: "7ed3329b-9519-4f28-a63c-94f2033d6c59",
+    authority: "https://login.microsoftonline.com/c8829a13-44bc-4793-96d5-1d06c2eab6ca",
+    redirectUri: window.location.href.split('?')[0].split('#')[0],
+  },
+  cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
+};
+const SP_SITE    = "https://aczeltlager.sharepoint.com/sites/AC-Zeitplan";
+const SP_FILE    = "ac26_data.json";
+const SP_FOLDER  = "Freigegebene%20Dokumente";
+const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+const SCOPES     = ["Sites.ReadWrite.All", "User.Read"];
+
+let msalApp, msalAccount = null;
+let spSiteId = null, spDriveId = null, spFileId = null;
+let syncStatus = "offline"; // offline | syncing | synced | error
+let syncTimer = null;
+let pendingSave = false;
+
+// Init MSAL
+try {
+  msalApp = new msal.PublicClientApplication(MSAL_CONFIG);
+} catch(e) {
+  console.warn("MSAL init failed:", e);
+}
+
+async function msalInit() {
+  if (!msalApp) return;
+  try {
+    await msalApp.initialize();
+    const resp = await msalApp.handleRedirectPromise();
+    if (resp) msalAccount = resp.account;
+    else {
+      const accounts = msalApp.getAllAccounts();
+      if (accounts.length) msalAccount = accounts[0];
+    }
+    if (msalAccount) await onSignedIn();
+    updateAuthUI();
+  } catch(e) { console.warn("MSAL init error:", e); updateAuthUI(); }
+}
+
+async function msalLogin() {
+  if (!msalApp) return;
+  try {
+    const resp = await msalApp.loginPopup({ scopes: SCOPES });
+    msalAccount = resp.account;
+    await onSignedIn();
+    updateAuthUI();
+  } catch(e) { console.warn("Login failed:", e); }
+}
+
+async function msalLogout() {
+  if (!msalApp || !msalAccount) return;
+  await msalApp.logoutPopup({ account: msalAccount });
+  msalAccount = null;
+  spSiteId = null; spDriveId = null; spFileId = null;
+  updateAuthUI();
+}
+
+async function getToken() {
+  if (!msalApp || !msalAccount) return null;
+  try {
+    const r = await msalApp.acquireTokenSilent({ scopes: SCOPES, account: msalAccount });
+    return r.accessToken;
+  } catch {
+    try {
+      const r = await msalApp.acquireTokenPopup({ scopes: SCOPES });
+      return r.accessToken;
+    } catch(e) { console.warn("Token error:", e); return null; }
+  }
+}
+
+async function onSignedIn() {
+  setSyncStatus("syncing", "Verbinde…");
+  try {
+    await resolveSpIds();
+    await loadFromSharePoint();
+    setSyncStatus("synced", "Synchronisiert");
+    startAutoSync();
+  } catch(e) {
+    console.warn("SharePoint connect error:", e);
+    setSyncStatus("error", "Fehler beim Laden");
+  }
+}
+
+async function resolveSpIds() {
+  const token = await getToken();
+  if (!token) throw new Error("No token");
+
+  // Get site ID
+  const hostname = "aczeltlager.sharepoint.com";
+  const sitePath = "/sites/AC-Zeitplan";
+  const siteRes = await fetch(`${GRAPH_BASE}/sites/${hostname}:${sitePath}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!siteRes.ok) throw new Error("Site not found");
+  const site = await siteRes.json();
+  spSiteId = site.id;
+
+  // Get drive ID (default document library)
+  const driveRes = await fetch(`${GRAPH_BASE}/sites/${spSiteId}/drive`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const drive = await driveRes.json();
+  spDriveId = drive.id;
+}
+
+async function loadFromSharePoint() {
+  const token = await getToken();
+  if (!token || !spDriveId) return;
+
+  try {
+    // Try to find existing file
+    const res = await fetch(
+      `${GRAPH_BASE}/drives/${spDriveId}/root:/${SP_FILE}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.ok) {
+      const meta = await res.json();
+      spFileId = meta.id;
+      // Download content
+      const dlRes = await fetch(meta["@microsoft.graph.downloadUrl"]);
+      if (dlRes.ok) {
+        const data = await dlRes.json();
+        applyLoadedData(data);
+        return;
+      }
+    }
+    // File doesn't exist yet — will be created on first save
+  } catch(e) { console.warn("Load error:", e); }
+}
+
+async function saveToSharePoint() {
+  const token = await getToken();
+  if (!token || !spDriveId) {
+    // Fallback to localStorage
+    saveLocal();
+    return;
+  }
+  setSyncStatus("syncing", "Speichert…");
+  try {
+    const data = buildSaveData();
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+
+    // Upload (PUT creates or replaces)
+    const res = await fetch(
+      `${GRAPH_BASE}/drives/${spDriveId}/root:/${SP_FILE}:/content`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: blob
+      }
+    );
+    if (res.ok) {
+      const meta = await res.json();
+      spFileId = meta.id;
+      setSyncStatus("synced", "Gespeichert " + new Date().toLocaleTimeString("de-DE", {hour:"2-digit",minute:"2-digit"}));
+    } else {
+      throw new Error("Upload failed: " + res.status);
+    }
+  } catch(e) {
+    console.warn("Save error:", e);
+    setSyncStatus("error", "Speicherfehler");
+    saveLocal(); // fallback
+  }
+}
+
+function buildSaveData() {
+  return { tasks, groups, nid: nextId, coll, collSub, title: ptitle, persons: PERSONS };
+}
+
+function applyLoadedData(d) {
+  if (d.tasks)   tasks   = d.tasks;
+  if (d.groups)  groups  = d.groups;
+  if (d.nid)     nextId  = d.nid;
+  if (d.coll)    coll    = d.coll;
+  if (d.collSub) collSub = d.collSub;
+  if (d.title)   ptitle  = d.title;
+  if (d.persons) PERSONS = d.persons;
+  render();
+}
+
+function saveLocal() {
+  localStorage.setItem("ac26_v3", JSON.stringify(buildSaveData()));
+}
+
+function setSyncStatus(status, text) {
+  syncStatus = status;
+  const dot  = document.getElementById("authDot");
+  const txt  = document.getElementById("authStatusText");
+  if (!dot || !txt) return;
+  dot.className = "auth-dot " + status;
+  txt.textContent = text || status;
+}
+
+function startAutoSync() {
+  if (syncTimer) clearInterval(syncTimer);
+  // Auto-sync every 30 seconds
+  syncTimer = setInterval(async () => {
+    if (msalAccount && pendingSave) {
+      pendingSave = false;
+      await saveToSharePoint();
+    }
+  }, 30000);
+}
+
+async function manualSync() {
+  if (!msalAccount) return;
+  await saveToSharePoint();
+}
+
+function updateAuthUI() {
+  const banner  = document.getElementById("authBanner");
+  const avatar  = document.getElementById("authAvatar");
+  const name    = document.getElementById("authName");
+  const status  = document.getElementById("authStatus");
+  const loginBtn= document.getElementById("loginBtn");
+  if (!banner) return;
+
+  if (msalAccount) {
+    const displayName = msalAccount.name || msalAccount.username;
+    const initials = displayName.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+    avatar.textContent = initials;
+    avatar.style.display = "flex";
+    name.textContent = displayName;
+    status.style.display = "flex";
+    loginBtn.style.display = "none";
+  } else {
+    avatar.style.display = "none";
+    name.textContent = "Nicht angemeldet – Daten werden lokal gespeichert";
+    status.style.display = "none";
+    loginBtn.style.display = "";
+  }
+}
+
 // ── PALETTE / DATA ────────────────────────────────────────────────────────────
 const SWATCHES=["#0a4738","#1a7a55","#2d9e6a","#4dd9a0","#1a5fa8","#4a9eff","#7c3aed","#b87fff","#b06000","#f5a623","#c0392b","#ff6b6b","#8b1a5a","#f06292","#2c5f6e","#60c4f5"];
 const dark=()=>window.matchMedia("(prefers-color-scheme:dark)").matches;
 
 const DEF_GROUPS=[
-  {key:"MEILENSTEINE",name:"Meilensteine",cd:"#4a9eff",cl:"#1a5fa8",abbr:"MEIL"},
-  {key:"GEISTLICHES",name:"Geistliches",cd:"#4dd9a0",cl:"#0a4738",abbr:"GEIS"},
-  {key:"PR",name:"PR",cd:"#f5a623",cl:"#b06000",abbr:"PR"},
-  {key:"STORY",name:"Story",cd:"#b87fff",cl:"#7c3aed",abbr:"STOR"},
-  {key:"VERWALTUNG",name:"Verwaltung",cd:"#ff6b6b",cl:"#c0392b",abbr:"VERW"},
-  {key:"VLL",name:"VLL",cd:"#60c4f5",cl:"#1a5fa8",abbr:"VLL"},
-  {key:"DEKO",name:"Deko",cd:"#f06292",cl:"#8b1a5a",abbr:"DEKO"},
+  {key:"MEILENSTEINE",name:"Meilensteine",cd:"#4a9eff",cl:"#1a5fa8"},
+  {key:"GEISTLICHES",name:"Geistliches",cd:"#4dd9a0",cl:"#0a4738"},
+  {key:"PR",name:"PR",cd:"#f5a623",cl:"#b06000"},
+  {key:"STORY",name:"Story",cd:"#b87fff",cl:"#7c3aed"},
+  {key:"VERWALTUNG",name:"Verwaltung",cd:"#ff6b6b",cl:"#c0392b"},
+  {key:"VLL",name:"VLL",cd:"#60c4f5",cl:"#1a5fa8"},
+  {key:"DEKO",name:"Deko",cd:"#f06292",cl:"#8b1a5a"},
 ];
 const DEF_TASKS=[
   {id:1,group:"MEILENSTEINE",task:"Aufgabenverteilung im LT",status:"Offen",assigned:"LT",start:"2025-09-16",end:"2025-09-16",notes:"Kickoff – Aufgabenverteilung im Leitungsteam"},
@@ -686,21 +890,25 @@ let PERSONS=[
   {name:"Thomas",color:"#c0392b"},
 ];
 
-// Teams = named groups of persons for quick assignment
-let TEAMS=[
-  {name:"Geistliches Team",members:["Alwin","Anatoli","Ben","Ewald","Thomas"]},
-  {name:"Leitungsteam",members:["Alwin","Ewald"]},
-];
-
-let tasks=[],groups=[],nextId=100,view="month",fg="ALL",fstt="ALL",fperson="ALL",sortBy="start_asc";
+let tasks=[],groups=[],nextId=100,view="month",fg="ALL",fstt="ALL",fperson="ALL";
 let interactiveMode=false,classicView="quarter";
 let coll={},selId=null,zoom=1,cols=[],ptitle="Meilensteinplan · AC 2026";
 let selCol="#4a9eff";
-let groupedMode=true; // true = grouped by team, false = flat sorted list
 const today=new Date();today.setHours(0,0,0,0);
 
-function load(){try{const s=localStorage.getItem("ac26_v3");if(s){const d=JSON.parse(s);tasks=d.tasks||DEF_TASKS;groups=d.groups||DEF_GROUPS;nextId=d.nid||100;coll=d.coll||{};collSub=d.collSub||{};ptitle=d.title||ptitle;if(d.persons)PERSONS=d.persons;if(d.teams)TEAMS=d.teams;}else{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}catch{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}
-function save(){localStorage.setItem("ac26_v3",JSON.stringify({tasks,groups,nid:nextId,coll,collSub,title:ptitle,persons:PERSONS,teams:TEAMS}));}
+function load(){try{const s=localStorage.getItem("ac26_v3");if(s){const d=JSON.parse(s);tasks=d.tasks||DEF_TASKS;groups=d.groups||DEF_GROUPS;nextId=d.nid||100;coll=d.coll||{};collSub=d.collSub||{};ptitle=d.title||ptitle;if(d.persons)PERSONS=d.persons;}else{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}catch{tasks=[...DEF_TASKS];groups=[...DEF_GROUPS];}}
+function save(){
+  saveLocal(); // always save locally immediately
+  if(msalAccount){
+    pendingSave=true;
+    // Debounce: save to SharePoint after 2s of inactivity
+    if(save._spTimer)clearTimeout(save._spTimer);
+    save._spTimer=setTimeout(()=>{
+      pendingSave=false;
+      saveToSharePoint();
+    },2000);
+  }
+}
 load();
 
 function getG(k){return groups.find(g=>g.key===k)||{key:k,name:k,cd:"#4dd9a0",cl:"#0a4738"};}
@@ -755,28 +963,6 @@ function setMode(m){
   interactiveMode=m==="interactive";
   document.querySelectorAll(".mode-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode===m));
   document.body.classList.toggle("classic",!interactiveMode);
-  // Status-Option: bei Übersicht komplett aus DOM entfernen (display:none geht in Safari nicht)
-  const sel=document.getElementById("sortSel");
-  const existing=document.querySelector("#sortSel option[value='status']");
-  if(interactiveMode){
-    if(!existing){
-      const opt=document.createElement("option");
-      opt.value="status";opt.textContent="Status";
-      // Nach "Startdatum"-Option einfügen
-      const startOpt=document.querySelector("#sortSel option[value='start_asc']");
-      if(startOpt&&startOpt.nextSibling)sel.insertBefore(opt,startOpt.nextSibling);
-      else sel.appendChild(opt);
-    }
-  }else{
-    if(existing)existing.remove();
-    if(sortBy==="status"){sortBy="start_asc";if(sel)sel.value="start_asc";}
-  }
-  render();
-}
-function setGroupedMode(v){
-  groupedMode=v;
-  document.getElementById("modeGrpBtn").classList.toggle("active",v);
-  document.getElementById("modeFlatBtn").classList.toggle("active",!v);
   render();
 }
 function setClassicView(v){
@@ -884,109 +1070,12 @@ function bw(s,e){return Math.max(xDate(ad(pd(e),1),cols)-cx(s),4);}
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function visible(){return tasks.filter(t=>(fg==="ALL"||t.group===fg)&&(fstt==="ALL"||t.status===fstt)&&(fperson==="ALL"||(t.persons||[]).includes(fperson)));}
 function setFP(v){fperson=v;render();}
-function setSort(v){sortBy=v;render();}
-
-// ── SORT: wählbar über Dropdown ───────────────────────────────────────────────
-// Primärsortierung nach gewähltem Kriterium; bei Gleichstand immer Startdatum → Name als Tiebreaker
-function flatSort(arr){
-  const stOrd={"Offen":0,"In Arbeit":1,"Erledigt":2};
-  return [...arr].sort((a,b)=>{
-    let d=0;
-    switch(sortBy){
-      case"start_asc":  d=pd(a.start)-pd(b.start); break;
-      case"status":     d=(stOrd[getEffectiveStatus(a)]||0)-(stOrd[getEffectiveStatus(b)]||0); break;
-      case"alpha_asc":  d=(a.task||"").localeCompare(b.task||"","de"); break;
-      case"alpha_desc": d=(b.task||"").localeCompare(a.task||"","de"); break;
-    }
-    if(d!==0)return d;
-    // Tiebreaker: Startdatum → Name
-    const ds=pd(a.start)-pd(b.start); if(ds!==0)return ds;
-    return(a.task||"").localeCompare(b.task||"","de");
-  });
-}
-
-// ── SHARED TASK ROW RENDERER ──────────────────────────────────────────────────
-function renderOneTaskRow(t,totalW,showGrpBadge){
-  const hasSub=interactiveMode&&t.subtasks&&t.subtasks.length>0;
-  const isExpanded=hasSub&&!collSub[t.id];
-  const{start:tStart,end:tEnd}=getTaskDates(t);
-  const effSt=getEffectiveStatus(t);
-  const sc=effSt==="Erledigt"?"er":effSt==="In Arbeit"?"ia":"of";
-  const done=effSt==="Erledigt",isSel=selId===t.id;
-  const isMS=tStart===tEnd,op=done?.45:1;
-  const overdue=!done&&pd(tEnd)<today;
-  const color=gc(t.group);
-  const x=cx(tStart),w=bw(tStart,tEnd);
-  // Fortschritt NUR bei Aufgaben mit Unteraufgaben — automatisch berechnet
-  const pct=hasSub?Math.round((t.subtasks.filter(s=>s.status==="Erledigt").length/t.subtasks.length)*100):0;
-  const progBar=(!isMS&&pct>0&&hasSub)?`<div class="bar-progress" style="width:${pct}%"></div>${pct>=20?`<span class="bar-pct">${pct}%</span>`:""}`:"";
-  let barH=isMS
-    ?`<div class="ms" style="left:${x-6}px;top:11px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" data-bardrag="${t.id}" title="${esc(t.task)}"></div>`
-    :`<div class="bar" style="left:${x}px;width:${w}px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" title="${esc(t.task)}">${progBar}${w>60?`<span class="blbl">${esc(t.task)}</span>`:""}</div>`;
-
-  let html=`<div class="gantt-row trow${isSel?" sel":""}${overdue?" overdue":""}${hasSub?" has-sub":""}" data-tid="${t.id}">`;
-  html+=`<div class="rl"${hasSub?` onclick="togSub(${t.id})"`:`onclick="selTask(${t.id})"`}>`;
-  if(hasSub){
-    html+=`<div class="sub-status ${sc}" onclick="event.stopPropagation();cycSt(event,${t.id})" title="Status wechseln (${effSt})"></div>`;
-    html+=`<span class="sub-toggle${isExpanded?" open":""}">▶</span>`;
-  }else{
-    html+=`<div class="sd ${sc}" onclick="cycSt(event,${t.id})" title="Status wechseln"></div>`;
-  }
-  html+=`<div class="tname${done?" done":""}">${esc(t.task)}</div>`;
-  if(hasSub)html+=`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0">${t.subtasks.filter(s=>s.status==="Erledigt").length}/${t.subtasks.length}</span>`;
-  // Flat mode: group badge. Grouped mode: assigned badge (as before)
-  if(showGrpBadge){
-    const g=getG(t.group);
-    const abbr=(g.abbr||t.group).slice(0,5).toUpperCase();
-    html+=`<span class="grp-badge" style="background:${color}22;color:${color};border-color:${color}55">${esc(abbr)}</span>`;
-  }
-  html+=`<button class="gedit" onclick="event.stopPropagation();openTaskModal(${t.id})" title="Bearbeiten">✎</button>`;
-  html+=`</div>`;
-  html+=`<div class="tbars" style="width:${totalW}px">${barH}</div>`;
-  html+=`</div>`;
-
-  // Subtask rows (only in interactive mode, unchanged)
-  if(isExpanded){
-    t.subtasks.forEach((s,si)=>{
-      const ssc=s.status==="Erledigt"?"er":s.status==="In Arbeit"?"ia":"of";
-      const sdone=s.status==="Erledigt";
-      const sx=cx(s.start),sw=bw(s.start,s.end),sisMS=s.start===s.end;
-      const sbar=sisMS
-        ?`<div class="ms" style="left:${sx-6}px;top:11px;background:${color};opacity:.8" onclick="event.stopPropagation();openSubModal(${t.id},${si})"></div>`
-        :`<div class="bar" style="left:${sx}px;width:${sw}px;background:${color};opacity:.8" onclick="event.stopPropagation();openSubModal(${t.id},${si})">${sw>60?`<span class="blbl">${esc(s.task)}</span>`:""}</div>`;
-      html+=`<div class="gantt-row subtrow${sdone?" sub-done":""}">`;
-      html+=`<div class="rl" onclick="openSubModal(${t.id},${si})">`;
-      html+=`<div class="sd ${ssc}" onclick="event.stopPropagation();cycSubSt(${t.id},${si})" title="Status wechseln"></div>`;
-      html+=`<div class="tname${sdone?" done":""}">${esc(s.task)}</div>`;
-      html+=`<button class="gedit" onclick="event.stopPropagation();openSubModal(${t.id},${si})" title="Bearbeiten">✎</button>`;
-      html+=`</div>`;
-      html+=`<div class="tbars" style="width:${totalW}px">${sbar}</div>`;
-      html+=`</div>`;
-    });
-  }
-  return html;
-}
-
-// ── FÄLLIGKEITS-BANNER ────────────────────────────────────────────────────────
-function updateDueBanner(){
-  const banner=document.getElementById("dueBanner");
-  const chips=document.getElementById("dueChips");
-  if(!banner||!chips)return;
-  const in14=new Date(today);in14.setDate(in14.getDate()+14);
-  const due=tasks.filter(t=>{
-    const e=pd(t.end);
-    const eff=getEffectiveStatus(t);
-    return eff!=="Erledigt"&&e>=today&&e<=in14;
-  }).sort((a,b)=>pd(a.end)-pd(b.end));
-  if(!due.length){banner.classList.remove("visible");return;}
-  banner.classList.add("visible");
-  chips.innerHTML=due.map(t=>`<span class="due-chip" onclick="selTask(${t.id});scrollToToday()" title="${fde(t.end)}">${esc(t.task)} · ${fde(t.end)}</span>`).join("");
-}
 
 function render(){
   cols=buildCols();
   renderTitle();
   const v=visible();
+  const visGrps=[...new Set(v.map(t=>t.group))];
   const totalW=cols.reduce((a,c)=>a+c.w,0);
   let html="";
 
@@ -1005,38 +1094,87 @@ function render(){
   });
   html+=`</div></div>`;
 
-  // ── GROUPED MODE ───────────────────────────────────────────────────────────
-  if(groupedMode){
-    const visGrps=[...new Set(v.map(t=>t.group))]; // only groups WITH visible tasks
-    visGrps.forEach(gk=>{
-      const g=getG(gk),color=gc(gk);
-      const isC=coll[gk];
-      // Sort within each group: start → status → name
-      const grpTasks=flatSort(v.filter(t=>t.group===gk));
+  // Body rows
+  visGrps.forEach(gk=>{
+    const g=getG(gk),color=gc(gk);
+    const isC=coll[gk];
+    const grpTasks=v.filter(t=>t.group===gk);
 
-      // Group header
-      html+=`<div class="gantt-row grow${isC?" collapsed":""}" data-gkey="${gk}">`;
-      html+=`<div class="rl" onclick="togGrp('${gk}')" style="color:${color}">`;
-      html+=`<span class="ci">▾</span>`;
-      html+=`<div style="width:7px;height:7px;border-radius:1px;background:${color};flex-shrink:0"></div>`;
-      html+=`${esc(g.name)}`;
-      html+=`<button class="gedit" onclick="event.stopPropagation();openGroupModal('${gk}')" title="Gruppe bearbeiten">✎</button>`;
-      html+=`</div>`;
-      html+=`<div class="grp-bars" style="width:${totalW}px;background:${color}16"></div>`;
-      html+=`</div>`;
+    // Group header
+    html+=`<div class="gantt-row grow${isC?" collapsed":""}" draggable="true" data-gkey="${gk}" ontouchstart="touchSortStart(event,'${gk}','group')" onmousedown="event.target.closest('.gedit')||event.stopPropagation&&0" ondragstart="grpDragStart(event,'${gk}')" ondragover="grpDragOver(event,'${gk}')" ondragleave="grpDragLeave(event)" ondrop="grpDrop(event,'${gk}')" ondragend="grpDragEnd(event)">`;
+    html+=`<div class="rl" onclick="togGrp('${gk}')" style="color:${color}">`;
+    html+=`<span class="drag-handle" title="Ziehen zum Sortieren">⠿</span>`;
+    html+=`<span class="ci">▾</span>`;
+    html+=`<div style="width:7px;height:7px;border-radius:1px;background:${color};flex-shrink:0"></div>`;
+    html+=`${esc(g.name)}`;
+    html+=`<button class="gedit" onclick="event.stopPropagation();openGroupModal('${gk}')" title="Gruppe bearbeiten">✎</button>`;
+    html+=`</div>`;
+    html+=`<div class="grp-bars" style="width:${totalW}px;background:${color}16"></div>`;
+    html+=`</div>`;
 
-      if(!isC){
-        grpTasks.forEach(t=>{ html+=renderOneTaskRow(t,totalW,false); });
-      }
-    });
-  }
-  // ── FLAT MODE ──────────────────────────────────────────────────────────────
-  else{
-    flatSort(v).forEach(t=>{ html+=renderOneTaskRow(t,totalW,true); });
-  }
+    if(!isC){
+      grpTasks.forEach(t=>{
+        const hasSub=interactiveMode&&t.subtasks&&t.subtasks.length>0;
+        const isExpanded=hasSub&&!collSub[t.id];
+        // Use computed dates if has subtasks
+        const{start:tStart,end:tEnd}=getTaskDates(t);
+        const sc=t.status==="Erledigt"?"er":t.status==="In Arbeit"?"ia":"of";
+        const done=t.status==="Erledigt",isSel=selId===t.id;
+        const isMS=tStart===tEnd,op=done&&!hasSub?.45:1;
+        const overdue=!done&&pd(tEnd)<today;
+        const x=cx(tStart),w=bw(tStart,tEnd);
+        const pct=hasSub?Math.round((t.subtasks.filter(s=>s.status==="Erledigt").length/t.subtasks.length)*100):t.progress||0;
+        const progBar=(!isMS&&pct>0&&!hasSub)?`<div class="bar-progress" style="width:${pct}%"></div>${pct>=20?`<span class="bar-pct">${pct}%</span>`:""}`:"";
+        const dpProgBar=(!isMS&&pct>0&&!hasSub)?`<div class="dp-planning" style="height:5px;background:var(--border2);border-radius:3px;margin-bottom:12px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div></div>`:"";
+        let barH=isMS
+          ?`<div class="ms" style="left:${x-6}px;top:11px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" data-bardrag="${t.id}" title="${esc(t.task)}"></div>`
+          :`<div class="bar" style="left:${x}px;width:${w}px;background:${color};opacity:${op}" onclick="event.stopPropagation();selTask(${t.id})" title="${esc(t.task)}">${progBar}${w>60?`<span class="blbl">${esc(t.task)}</span>`:""}</div>`;
+
+        html+=`<div class="gantt-row trow${isSel?" sel":""}${overdue?" overdue":""}${hasSub?" has-sub":""}" draggable="true" data-tid="${t.id}" ontouchstart="touchSortStart(event,${t.id},'task')" ondragstart="taskDragStart(event,${t.id})" ondragover="taskDragOver(event,${t.id})" ondragleave="taskDragLeave(event)" ondrop="taskDrop(event,${t.id})" ondragend="taskDragEnd(event)">`;
+        html+=`<div class="rl"${hasSub?` onclick="togSub(${t.id})"`:`onclick="selTask(${t.id})"`}>`;
+        html+=`<span class="drag-handle" title="Ziehen zum Sortieren">⠿</span>`;
+        if(hasSub){
+          // Status as small circle + expand arrow
+          const subSc=t.status==="Erledigt"?"er":t.status==="In Arbeit"?"ia":"of";
+          html+=`<div class="sub-status ${subSc}" onclick="event.stopPropagation();cycSt(event,${t.id})" title="Status wechseln (${t.status})"></div>`;
+          html+=`<span class="sub-toggle${isExpanded?" open":""}">▶</span>`;
+        }else{
+          html+=`<div class="sd ${sc}" onclick="cycSt(event,${t.id})" title="Status wechseln"></div>`;
+        }
+        html+=`<div class="tname${done&&!hasSub?" done":""}">${esc(t.task)}</div>`;
+        if(hasSub)html+=`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);flex-shrink:0">${t.subtasks.filter(s=>s.status==="Erledigt").length}/${t.subtasks.length}</span>`;
+        if(t.assigned&&!hasSub)html+=`<div class="tasm">${esc(t.assigned)}</div>`;
+        html+=`<button class="gedit" onclick="event.stopPropagation();openTaskModal(${t.id})" title="Bearbeiten">✎</button>`;
+        html+=`</div>`;
+        html+=`<div class="tbars" style="width:${totalW}px">${barH}</div>`;
+        html+=`</div>`;
+
+        // Render subtask rows if expanded
+        if(isExpanded){
+          t.subtasks.forEach((s,si)=>{
+            const ssc=s.status==="Erledigt"?"er":s.status==="In Arbeit"?"ia":"of";
+            const sdone=s.status==="Erledigt";
+            const sx=cx(s.start),sw=bw(s.start,s.end),sisMS=s.start===s.end;
+            const sbar=sisMS
+              ?`<div class="ms" style="left:${sx-6}px;top:11px;background:${color};opacity:.8" onclick="event.stopPropagation();openSubModal(${t.id},${si})"></div>`
+              :`<div class="bar" style="left:${sx}px;width:${sw}px;background:${color};opacity:.8" onclick="event.stopPropagation();openSubModal(${t.id},${si})">${sw>60?`<span class="blbl">${esc(s.task)}</span>`:""}</div>`;
+            html+=`<div class="gantt-row subtrow${sdone?" sub-done":""}">`;
+            html+=`<div class="rl" onclick="openSubModal(${t.id},${si})">`;
+            html+=`<div class="sd ${ssc}" onclick="event.stopPropagation();cycSubSt(${t.id},${si})" title="Status wechseln"></div>`;
+            html+=`<div class="tname${sdone?" done":""}">${esc(s.task)}</div>`;
+            html+=`<button class="gedit" onclick="event.stopPropagation();openSubModal(${t.id},${si})" title="Bearbeiten">✎</button>`;
+            html+=`</div>`;
+            html+=`<div class="tbars" style="width:${totalW}px">${sbar}</div>`;
+            html+=`</div>`;
+          });
+        }
+      });
+    }
+  });
 
   // Today line + weekend shading
   const tx=xDate(today,cols);
+  // Weekend shading for day view
   if(view==="day"){
     let wkHtml="";
     cols.forEach(c=>{
@@ -1047,7 +1185,7 @@ function render(){
   if(tx>0)html+=`<div class="gantt-row" style="height:0;overflow:visible;pointer-events:none"><div style="width:var(--label-w);min-width:var(--label-w);flex-shrink:0"></div><div style="flex:1;position:relative;height:0"><div class="tl" style="left:${tx}px;background:var(--today);height:9999px;top:-9999px"></div></div></div>`;
 
   document.getElementById("ganttInner").innerHTML=html;
-  updateStats();updateFilterOpts();updateDueBanner();
+  updateStats();updateFilterOpts();
 }
 
 function renderTitle(){const d=document.getElementById("titleDisplay");d.textContent=ptitle;document.title=ptitle;}
@@ -1080,8 +1218,6 @@ function updateFilterOpts(){
   }
   const fp=document.getElementById("filterPerson");
   if(fp){const curP=fp.value;fp.innerHTML=`<option value="ALL">Alle Personen</option>`+PERSONS.map(p=>`<option value="${p.name}"${p.name===curP?" selected":""}>${p.name}</option>`).join("");}
-  const ss=document.getElementById("sortSel");
-  if(ss)ss.value=sortBy;
 }
 
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
@@ -1133,19 +1269,10 @@ function buildColsAtZoom(z){
   return res;
 }
 
-function getEffectiveStatus(t){
-  if(!t.subtasks||!t.subtasks.length)return t.status||"Offen";
-  const subs=t.subtasks;
-  if(subs.every(s=>s.status==="Erledigt"))return"Erledigt";
-  if(subs.every(s=>!s.status||s.status==="Offen"))return"Offen";
-  return"In Arbeit";
-}
 function cycSt(e,id){
   e.stopPropagation();
   const t=tasks.find(t=>t.id===id);if(!t)return;
-  if(t.subtasks&&t.subtasks.length)return;
-  const o=["Offen","In Arbeit","Erledigt"];
-  t.status=o[(o.indexOf(t.status||"Offen")+1)%3];
+  const o=["Offen","In Arbeit","Erledigt"];t.status=o[(o.indexOf(t.status)+1)%3];
   save();render();if(selId===id)renderDetail(id);
 }
 
@@ -1157,22 +1284,21 @@ function renderDetail(id){
   const days=Math.round((pd(t.end)-pd(t.start))/864e5)+1;
   const isMS=t.start===t.end;
   const overdue=t.status!=="Erledigt"&&pd(t.end)<today;
-  const hasSubs=(t.subtasks||[]).length>0;
-  // Fortschritt NUR aus Unteraufgaben berechnen — kein manueller Wert
-  const pct=hasSubs?Math.round(t.subtasks.filter(s=>s.status==="Erledigt").length/t.subtasks.length*100):0;
-  const dpProgBar=(hasSubs&&!isMS&&pct>0)?`<div style="height:5px;background:var(--border2);border-radius:3px;margin-bottom:12px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div></div>`:"";
+  const pct=t.progress||0;
+  const dpProgBar=(!isMS&&pct>0)?`<div class="dp-planning" style="height:5px;background:var(--border2);border-radius:3px;margin-bottom:12px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div></div>`:"";
   const persons=(t.persons||[]);
+  const comments=(t.comments||[]);
 
-  const personsHtml=PERSONS.map(p=>{
-    const on=persons.includes(p.name);
-    return`<div onclick="toggleDetailPerson(${id},'${p.name}')" style="display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;cursor:pointer;font-size:10px;font-family:'IBM Plex Mono',monospace;border:1.5px solid ${on?p.color:'var(--border2)'};background:${on?p.color:'transparent'};color:${on?'#fff':'var(--muted)'};transition:all .12s;font-weight:${on?'600':'400'}">
-      <span style="width:12px;height:12px;border-radius:50%;background:${on?'rgba(255,255,255,0.35)':p.color};display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:#fff;font-weight:700;flex-shrink:0">${p.name[0]}</span>${p.name}
-    </div>`;
-  }).join("");
-  const teamBtnsHtml=TEAMS.length?TEAMS.map(team=>{
-    const allOn=team.members.length>0&&team.members.every(m=>persons.includes(m));
-    return`<button onclick="assignTeamToTask(${id},'${esc(team.name)}')" style="padding:2px 8px;border-radius:8px;font-size:10px;font-family:'IBM Plex Mono',monospace;background:${allOn?'var(--accent)':'var(--surface3)'};border:1.5px solid ${allOn?'var(--accent)':'var(--border2)'};color:${allOn?'#fff':'var(--muted)'};cursor:pointer;font-weight:${allOn?'600':'400'}">${esc(team.name)}</button>`;
-  }).join(""):"";
+  const personsHtml=persons.length?persons.map(name=>{
+    const p=PERSONS.find(pp=>pp.name===name)||{name,color:"#888"};
+    return`<span class="person-chip"><span class="pa" style="background:${p.color}">${p.name[0]}</span>${p.name}</span>`;
+  }).join(" "):"";
+
+  const commentsHtml=comments.map((c,i)=>`
+    <div class="comment-item">
+      <div class="comment-meta">${esc(c.author||"–")} · ${c.date||""} <button onclick="deleteComment(${id},${i})" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">✕</button></div>
+      <div class="comment-text">${esc(c.text)}</div>
+    </div>`).join("");
 
   document.getElementById("detailInner").innerHTML=`
     <div style="position:relative;padding-top:2px">
@@ -1180,26 +1306,14 @@ function renderDetail(id){
       <div class="dptag" style="background:${color}22;color:${color}">${esc(g.name)}</div>
       <div class="dptit">${esc(t.task)}${overdue?` <span class="dp-planning" style="font-size:11px;color:var(--overdue);font-weight:400">⚠ überfällig</span>`:""}</div>
       ${dpProgBar||""}
-      ${(()=>{
-        const es=hasSubs?getEffectiveStatus(t):t.status;
-        const scol=es==="Erledigt"?"var(--accent)":es==="In Arbeit"?"var(--today)":"var(--muted)";
-        const statusRow=`<div class="dprow dp-planning"><div class="dpl">Status</div><div class="dpv">${
-          hasSubs
-            ?`<span style="font-size:11px;font-weight:600;color:${scol};font-family:'IBM Plex Mono',monospace">${es}</span><span style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-left:6px">aus Unteraufgaben</span>`
-            :`<select class="dps" onchange="setTS(${t.id},this.value)">${["Offen","In Arbeit","Erledigt"].map(s=>`<option${es===s?" selected":""}>${s}</option>`).join("")}</select>`
-        }</div></div>`;
-        const progressRow=(!isMS&&hasSubs)
-          ?`<div class="dprow dp-planning"><div class="dpl">Fortschritt</div><div class="dpv" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${color}">${pct}%<span style="font-size:9px;color:var(--muted);font-weight:400;margin-left:6px">aus Unteraufgaben</span></div></div>`
-          :"";
-        return statusRow+progressRow;
-      })()}
+      <div class="dprow dp-planning"><div class="dpl">Status</div><div class="dpv"><select class="dps" onchange="setTS(${t.id},this.value)">${["Offen","In Arbeit","Erledigt"].map(s=>`<option${t.status===s?" selected":""}>${s}</option>`).join("")}</select></div></div>
+      ${!isMS?`<div class="dprow dp-planning"><div class="dpl">Fortschritt</div><div class="dpv" style="display:flex;align-items:center;gap:8px"><input type="range" min="0" max="100" step="5" value="${pct}" style="flex:1;accent-color:${color}" onchange="setProgress(${id},this.value)"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;min-width:28px">${pct}%</span></div></div>`:""}
+
       <div class="dprow"><div class="dpl">Start</div><div class="dpv">${fde(t.start)}</div></div>
       <div class="dprow"><div class="dpl">Ende</div><div class="dpv"${overdue&&interactiveMode?' style="color:var(--overdue)"':''}>${fde(t.end)}</div></div>
       <div class="dprow"><div class="dpl">Dauer</div><div class="dpv">${days===1?"Einzeltermin":days+" Tage"}</div></div>
-      <div class="dprow"><div class="dpl">Team</div><div class="dpv">
-        ${teamBtnsHtml?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${teamBtnsHtml}</div>`:""}
-        <div style="display:flex;flex-wrap:wrap;gap:4px">${personsHtml}</div>
-      </div></div>
+      ${personsHtml?`<div class="dprow dp-planning"><div class="dpl">Team</div><div class="dpv" style="display:flex;flex-wrap:wrap;gap:5px">${personsHtml}</div></div>`:""}
+      ${t.assigned?`<div class="dprow"><div class="dpl">Kürzel</div><div class="dpv">${esc(t.assigned)}</div></div>`:""}
       ${t.notes?`<div class="dpn">${esc(t.notes)}</div>`:""}
       ${interactiveMode&&t.subtasks&&t.subtasks.length?`
         <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
@@ -1222,35 +1336,32 @@ function renderDetail(id){
           <div style="padding:6px 0;cursor:pointer;color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px" onclick="openSubModal(${t.id},-1)">
             <span style="font-size:14px;line-height:1">+</span> Unteraufgabe hinzufügen
           </div>
-        </div>`:""}`}
+        </div>`:""}`}      <div class="dp-planning" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Kommentare</div>
+        ${commentsHtml}
+        <textarea class="comment-inp" id="commentInp${id}" placeholder="Kommentar hinzufügen…"></textarea>
+        <button class="btn btn-g" style="margin-top:6px;width:100%;justify-content:center" onclick="addComment(${id})">+ Kommentar</button>
+      </div>
       <div class="dpa" style="margin-top:12px"><button class="btn btn-g" onclick="openTaskModal(${t.id})" style="flex:1">✎ Bearbeiten</button><button class="btn btn-d" onclick="delTask(${t.id})">✕</button></div>
     </div>`;
   document.getElementById("detailPanel").classList.add("open");
 }
 function closeDetail(){selId=null;document.getElementById("detailPanel").classList.remove("open");render();}
-function setTS(id,val){
-  const t=tasks.find(t=>t.id===id);if(!t)return;
-  if(t.subtasks&&t.subtasks.length){t.subtasks.forEach(s=>s.status=val);}
-  else{t.status=val;}
-  save();render();renderDetail(id);
-}
+function setTS(id,val){tasks.find(t=>t.id===id).status=val;save();render();renderDetail(id);}
 function setProgress(id,val){const t=tasks.find(t=>t.id===id);if(!t)return;t.progress=parseInt(val);save();render();renderDetail(id);}
-
-function toggleDetailPerson(id,name){
+function addComment(id){
+  const inp=document.getElementById("commentInp"+id);
+  if(!inp||!inp.value.trim())return;
   const t=tasks.find(t=>t.id===id);if(!t)return;
-  if(!t.persons)t.persons=[];
-  if(t.persons.includes(name))t.persons=t.persons.filter(n=>n!==name);
-  else t.persons.push(name);
-  save();render();renderDetail(id);
+  if(!t.comments)t.comments=[];
+  const now=new Date();
+  t.comments.push({text:inp.value.trim(),author:"",date:`${now.getDate().toString().padStart(2,"0")}.${(now.getMonth()+1).toString().padStart(2,"0")}.${now.getFullYear()}`});
+  save();renderDetail(id);
 }
-function assignTeamToTask(id,teamName){
-  const t=tasks.find(tt=>tt.id===id);if(!t)return;
-  const team=TEAMS.find(tm=>tm.name===teamName);if(!team)return;
-  if(!t.persons)t.persons=[];
-  const allOn=team.members.length>0&&team.members.every(m=>t.persons.includes(m));
-  if(allOn){t.persons=t.persons.filter(m=>!team.members.includes(m));}
-  else{team.members.forEach(m=>{if(!t.persons.includes(m))t.persons.push(m);});}
-  save();render();renderDetail(id);
+function deleteComment(taskId,idx){
+  const t=tasks.find(t=>t.id===taskId);if(!t||!t.comments)return;
+  if(!confirm("Kommentar löschen?"))return;
+  t.comments.splice(idx,1);save();renderDetail(taskId);
 }
 function delTask(id){if(!confirm("Aufgabe löschen?"))return;tasks=tasks.filter(t=>t.id!==id);selId=null;document.getElementById("detailPanel").classList.remove("open");save();render();}
 
@@ -1259,26 +1370,9 @@ function renderPersonChips(selected){
   const wrap=document.getElementById("fPersons");if(!wrap)return;
   wrap.innerHTML=PERSONS.map(p=>{
     const on=(selected||[]).includes(p.name);
-    return`<div onclick="togglePerson('${p.name}')" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1.5px solid ${on?p.color:'var(--border2)'};background:${on?p.color:'transparent'};color:${on?'#fff':'var(--muted)'};transition:all .12s;font-weight:${on?'600':'400'}">
-      <span style="width:14px;height:14px;border-radius:50%;background:${on?'rgba(255,255,255,0.35)':p.color};display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700;flex-shrink:0">${p.name[0]}</span>${p.name}</div>`;
+    return`<div onclick="togglePerson('${p.name}')" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1.5px solid ${on?p.color:' var(--border2)'};background:${on?p.color+'22':'transparent'};color:${on?p.color:'var(--muted)'};transition:all .12s;font-weight:${on?'600':'400'}">
+      <span style="width:14px;height:14px;border-radius:50%;background:${p.color};display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:700;flex-shrink:0">${p.name[0]}</span>${p.name}</div>`;
   }).join("");
-  // Team quick-assign buttons
-  const teamWrap=document.getElementById("fTeamBtns");
-  if(teamWrap&&TEAMS.length){
-    teamWrap.innerHTML=`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);align-self:center">Teams:</span>`+
-    TEAMS.map(team=>{
-      const allOn=team.members.length>0&&team.members.every(m=>modalPersons.includes(m));
-      return`<button style="padding:2px 9px;font-size:10px;border-radius:10px;font-family:'IBM Plex Mono',monospace;background:${allOn?'var(--accent)':'var(--surface3)'};border:1.5px solid ${allOn?'var(--accent)':'var(--border2)'};color:${allOn?'#fff':'var(--muted)'};cursor:pointer;font-weight:${allOn?'600':'400'}" onclick="assignTeam('${esc(team.name)}')">${esc(team.name)}</button>`;
-    }).join("");
-  }
-}
-
-function assignTeam(teamName){
-  const team=TEAMS.find(t=>t.name===teamName);if(!team)return;
-  const allOn=team.members.length>0&&team.members.every(m=>modalPersons.includes(m));
-  if(allOn){modalPersons=modalPersons.filter(m=>!team.members.includes(m));}
-  else{team.members.forEach(m=>{if(!modalPersons.includes(m))modalPersons.push(m);});}
-  renderPersonChips(modalPersons);
 }
 let modalPersons=[];
 function togglePerson(name){
@@ -1295,27 +1389,13 @@ function openTaskModal(id){
     document.getElementById("eid").value=id;
     document.getElementById("fTask").value=t.task;
     document.getElementById("fGroup").value=t.group;
-    const hasSubs=(t.subtasks||[]).length>0;
-    const effSt=hasSubs?getEffectiveStatus(t):t.status;
-    document.getElementById("fStatus").value=effSt;
-    document.getElementById("fStatus").disabled=hasSubs;
+    document.getElementById("fStatus").value=t.status;
     document.getElementById("fStart").value=t.start;
     document.getElementById("fEnd").value=t.end;
     document.getElementById("fAsgn").value=t.assigned||"";
     document.getElementById("fNotes").value=t.notes||"";
-    // Fortschritt: nur bei Aufgaben mit Unteraufgaben anzeigen, dann automatisch
-    const wrap=document.getElementById("fProgressWrap");
-    if(hasSubs){
-      const autoPct=Math.round(t.subtasks.filter(s=>s.status==="Erledigt").length/t.subtasks.length*100);
-      document.getElementById("fProgress").value=autoPct;
-      document.getElementById("fProgress").disabled=true;
-      document.getElementById("fProgress").style.display="none";
-      document.getElementById("fProgressAuto").style.display="block";
-      document.getElementById("fProgressLbl").textContent=autoPct+"%";
-      wrap.style.display="";
-    }else{
-      wrap.style.display="none";
-    }
+    document.getElementById("fProgress").value=t.progress||0;
+    document.getElementById("fProgressLbl").textContent=(t.progress||0)+"%";
     modalPersons=[...(t.persons||[])];
     renderPersonChips(modalPersons);
     modalSubtasks=[...(t.subtasks||[]).map(s=>({...s}))];
@@ -1327,13 +1407,10 @@ function openTaskModal(id){
     document.getElementById("fTask").value="";
     document.getElementById("fGroup").value=groups[0]?.key||"";
     document.getElementById("fStatus").value="Offen";
-    document.getElementById("fStatus").disabled=false;
     document.getElementById("fStart").value=fmt(today);
     document.getElementById("fEnd").value=fmt(today);
     document.getElementById("fAsgn").value="";
     document.getElementById("fNotes").value="";
-    // Neue Aufgabe hat noch keine Unteraufgaben — kein Fortschritt
-    document.getElementById("fProgressWrap").style.display="none";
     document.getElementById("fProgress").value=0;
     document.getElementById("fProgressLbl").textContent="0%";
     modalPersons=[];
@@ -1361,7 +1438,7 @@ function saveTask(){
   if(pd(end)<pd(start)){alert("Enddatum muss nach Startdatum liegen.");return;}
   const idS=document.getElementById("eid").value;
   const progress=parseInt(document.getElementById("fProgress").value)||0;
-  if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;if(!modalSubtasks.length)t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();if(!modalSubtasks.length)t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];}}
+  if(idS){const t=tasks.find(t=>t.id===parseInt(idS));if(t){t.task=task;t.group=document.getElementById("fGroup").value;t.status=document.getElementById("fStatus").value;t.start=start;t.end=end;t.assigned=document.getElementById("fAsgn").value.trim();t.notes=document.getElementById("fNotes").value.trim();t.progress=progress;t.persons=[...modalPersons];t.subtasks=[...modalSubtasks];}}
   else tasks.push({id:nextId++,task,group:document.getElementById("fGroup").value,status:document.getElementById("fStatus").value,start,end,assigned:document.getElementById("fAsgn").value.trim(),notes:document.getElementById("fNotes").value.trim(),progress,persons:[...modalPersons],comments:[],subtasks:[...modalSubtasks]});
   save();closeModal("taskModal");render();
 }
@@ -1371,8 +1448,8 @@ function openGroupModal(key){
   selCol=key?dark()?getG(key).cd:getG(key).cl:"#4dd9a0";
   document.getElementById("swRow").innerHTML=SWATCHES.map(c=>`<div class="sw${selCol===c?" active":""}" style="background:${c}" onclick="selColor('${c}')"></div>`).join("");
   document.getElementById("gCC").value=selCol;
-  if(key){document.getElementById("grpMdTit").textContent="Gruppe bearbeiten";document.getElementById("gEKey").value=key;document.getElementById("gName").value=getG(key).name;document.getElementById("gKey").value=getG(key).abbr||getG(key).key.slice(0,4);document.getElementById("gDelBtn").style.display="";}
-  else{document.getElementById("grpMdTit").textContent="Neue Gruppe";document.getElementById("gEKey").value="";document.getElementById("gName").value="";document.getElementById("gKey").value="";document.getElementById("gDelBtn").style.display="none";}
+  if(key){document.getElementById("grpMdTit").textContent="Gruppe bearbeiten";document.getElementById("gEKey").value=key;document.getElementById("gName").value=getG(key).name;document.getElementById("gKeyRow").style.display="none";document.getElementById("gDelBtn").style.display="";}
+  else{document.getElementById("grpMdTit").textContent="Neue Gruppe";document.getElementById("gEKey").value="";document.getElementById("gName").value="";document.getElementById("gKey").value="";document.getElementById("gKeyRow").style.display="";document.getElementById("gDelBtn").style.display="none";}
   document.getElementById("groupModal").classList.add("open");
   document.getElementById("gName").focus();
 }
@@ -1380,9 +1457,8 @@ function selColor(c){selCol=c;document.getElementById("gCC").value=c;document.qu
 function saveGroup(){
   const name=document.getElementById("gName").value.trim();if(!name){alert("Name eingeben.");return;}
   const key=document.getElementById("gEKey").value;
-  const abbr=document.getElementById("gKey").value.trim().toUpperCase().slice(0,5)||undefined;
-  if(key){const g=groups.find(g=>g.key===key);if(g){g.name=name;g.cd=selCol;g.cl=selCol;if(abbr)g.abbr=abbr;else delete g.abbr;}}
-  else{const nk=(document.getElementById("gKey").value.trim().toUpperCase().replace(/\s+/g,"_"))||name.toUpperCase().replace(/\s+/g,"_").slice(0,12);if(groups.find(g=>g.key===nk)){alert("Kürzel bereits vorhanden.");return;}groups.push({key:nk,name,cd:selCol,cl:selCol,abbr});}
+  if(key){const g=groups.find(g=>g.key===key);if(g){g.name=name;g.cd=selCol;g.cl=selCol;}}
+  else{const nk=(document.getElementById("gKey").value.trim().toUpperCase().replace(/\s+/g,"_"))||name.toUpperCase().replace(/\s+/g,"_").slice(0,12);if(groups.find(g=>g.key===nk)){alert("Kürzel bereits vorhanden.");return;}groups.push({key:nk,name,cd:selCol,cl:selCol});}
   save();closeModal("groupModal");render();
   if(pendingGroupCallback){const cb=pendingGroupCallback;pendingGroupCallback=null;setTimeout(cb,50);}
 }
@@ -1687,55 +1763,166 @@ function renderGrpList(){
   wrap.innerHTML=groups.map((g,i)=>{
     const color=gc(g.key);
     const cnt=tasks.filter(t=>t.group===g.key).length;
-    return`<div class="grp-list-item" data-gidx="${i}" data-gkey="${g.key}">
+    return`<div class="grp-list-item" draggable="true" data-gidx="${i}" data-gkey="${g.key}"
+      ontouchstart="touchSortStart(event,'${g.key}','grpmodal')"
+      ondragstart="mgrDragStart(event,${i})" ondragover="mgrDragOver(event,${i})"
+      ondragleave="mgrDragLeave(event)" ondrop="mgrDrop(event,${i})" ondragend="mgrDragEnd()">
+      <span class="grp-drag-handle" title="Ziehen zum Sortieren">⠿</span>
       <div class="grp-dot" style="background:${color}"></div>
       <div class="grp-list-name" style="color:${color}">${esc(g.name)}</div>
-      ${g.abbr?`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;background:${color}22;color:${color};border:1px solid ${color}44;flex-shrink:0">${esc(g.abbr)}</span>`:""}
       <div class="grp-list-count">${cnt} Aufgabe${cnt!==1?"n":""}</div>
       <button class="btn btn-g" style="padding:3px 9px;font-size:11px" onclick="closeModal('manageModal');openGroupModal('${g.key}')">✎</button>
     </div>`;
   }).join("");
 }
 
-// ── SUBTASK FUNCTIONS ─────────────────────────────────────────────────────────
-let modalSubPersons=[];
+let mgrDragIdx=null;
+function mgrDragStart(e,i){mgrDragIdx=i;setTimeout(()=>e.target.classList.add("dragging"),0);}
+function mgrDragOver(e,i){e.preventDefault();if(i===mgrDragIdx)return;const el=e.currentTarget;const rect=el.getBoundingClientRect();const mid=rect.top+rect.height/2;document.querySelectorAll(".grp-list-item").forEach(x=>{x.classList.remove("drag-over-top","drag-over-bot")});el.classList.add(e.clientY<mid?"drag-over-top":"drag-over-bot");}
+function mgrDragLeave(e){e.currentTarget.classList.remove("drag-over-top","drag-over-bot");}
+function mgrDrop(e,i){
+  e.preventDefault();
+  if(mgrDragIdx===null||mgrDragIdx===i)return;
+  const el=e.currentTarget,rect=el.getBoundingClientRect();
+  const before=e.clientY<rect.top+rect.height/2;
+  const moved=groups.splice(mgrDragIdx,1)[0];
+  let target=i>mgrDragIdx?i-1:i;
+  if(!before&&target<groups.length)target++;
+  groups.splice(before?target:Math.min(target,groups.length),0,moved);
+  reorderTasksByGroups();save();render();renderGrpList();mgrDragIdx=null;
+}
+function mgrDragEnd(){mgrDragIdx=null;document.querySelectorAll(".grp-list-item").forEach(x=>x.classList.remove("dragging","drag-over-top","drag-over-bot"));}
 
-function renderSubPersonChips(selected){
-  const wrap=document.getElementById("subPersons");if(!wrap)return;
-  wrap.innerHTML=PERSONS.map(p=>{
-    const on=(selected||[]).includes(p.name);
-    return`<div onclick="toggleSubPerson('${p.name}')" style="display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1.5px solid ${on?p.color:'var(--border2)'};background:${on?p.color:'transparent'};color:${on?'#fff':'var(--muted)'};transition:all .12s;font-weight:${on?'600':'400'}">
-      <span style="width:13px;height:13px;border-radius:50%;background:${on?'rgba(255,255,255,0.35)':p.color};display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:#fff;font-weight:700;flex-shrink:0">${p.name[0]}</span>${p.name}</div>`;
-  }).join("");
-  // Team buttons
-  const tb=document.getElementById("subTeamBtns");
-  if(tb&&TEAMS.length){
-    tb.innerHTML=`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);align-self:center">Teams:</span>`+
-    TEAMS.map(team=>{
-      const allOn=team.members.length>0&&team.members.every(m=>modalSubPersons.includes(m));
-      return`<button style="padding:2px 8px;font-size:10px;border-radius:10px;font-family:'IBM Plex Mono',monospace;background:${allOn?'var(--accent)':'var(--surface3)'};border:1.5px solid ${allOn?'var(--accent)':'var(--border2)'};color:${allOn?'#fff':'var(--muted)'};cursor:pointer;font-weight:${allOn?'600':'400'}" onclick="assignSubTeam('${esc(team.name)}')">${esc(team.name)}</button>`;
-    }).join("");
+// ── GROUP DRAG-DROP (in main gantt) ──────────────────────────────────────────
+let grpDrag=null;
+function grpDragStart(e,key){grpDrag=key;e.dataTransfer.effectAllowed="move";setTimeout(()=>{const el=document.querySelector(`[data-gkey="${key}"]`);if(el)el.classList.add("dragging");},0);}
+function grpDragOver(e,key){if(key===grpDrag)return;e.preventDefault();e.dataTransfer.dropEffect="move";document.querySelectorAll(".grow").forEach(x=>x.classList.remove("drag-over-top","drag-over-bot"));const el=document.querySelector(`[data-gkey="${key}"]`);if(el){const r=el.getBoundingClientRect();el.classList.add(e.clientY<r.top+r.height/2?"drag-over-top":"drag-over-bot");}}
+function grpDragLeave(e){e.currentTarget.classList.remove("drag-over-top","drag-over-bot");}
+function grpDrop(e,key){
+  e.preventDefault();
+  if(!grpDrag||grpDrag===key)return;
+  const el=document.querySelector(`[data-gkey="${key}"]`);
+  const before=el?e.clientY<el.getBoundingClientRect().top+14:false;
+  const fromIdx=groups.findIndex(g=>g.key===grpDrag);
+  const toIdx=groups.findIndex(g=>g.key===key);
+  if(fromIdx<0||toIdx<0)return;
+  const moved=groups.splice(fromIdx,1)[0];
+  const newIdx=groups.findIndex(g=>g.key===key);
+  groups.splice(before?newIdx:newIdx+1,0,moved);
+  reorderTasksByGroups();save();render();grpDrag=null;
+}
+function grpDragEnd(e){grpDrag=null;document.querySelectorAll(".grow").forEach(x=>x.classList.remove("dragging","drag-over-top","drag-over-bot"));}
+
+// ── TASK DRAG-DROP ────────────────────────────────────────────────────────────
+let taskDrag=null;
+let dragFromLabel=false;
+document.addEventListener("mousedown",e=>{
+  dragFromLabel=!!e.target.closest('.rl');
+});
+
+function taskDragStart(e,id){
+  if(!dragFromLabel){e.preventDefault();return;}
+  taskDrag=id;e.dataTransfer.effectAllowed="move";
+  setTimeout(()=>{const el=document.querySelector(`[data-tid="${id}"]`);if(el)el.classList.add("dragging");},0);
+}
+function taskDragOver(e,id){if(id===taskDrag)return;e.preventDefault();e.dataTransfer.dropEffect="move";document.querySelectorAll(".trow").forEach(x=>x.classList.remove("drag-over-top","drag-over-bot"));const el=document.querySelector(`[data-tid="${id}"]`);if(el){const r=el.getBoundingClientRect();el.classList.add(e.clientY<r.top+r.height/2?"drag-over-top":"drag-over-bot");}}
+function taskDragLeave(e){e.currentTarget.classList.remove("drag-over-top","drag-over-bot");}
+function taskDrop(e,id){
+  e.preventDefault();
+  if(!taskDrag||taskDrag===id)return;
+  const el=document.querySelector(`[data-tid="${id}"]`);
+  const before=el?e.clientY<el.getBoundingClientRect().top+el.getBoundingClientRect().height/2:false;
+  const fromIdx=tasks.findIndex(t=>t.id===taskDrag);
+  const toIdx=tasks.findIndex(t=>t.id===id);
+  if(fromIdx<0||toIdx<0)return;
+  const moved=tasks.splice(fromIdx,1)[0];
+  const newIdx=tasks.findIndex(t=>t.id===id);
+  tasks.splice(before?newIdx:newIdx+1,0,moved);
+  save();render();taskDrag=null;
+}
+function taskDragEnd(e){taskDrag=null;document.querySelectorAll(".trow").forEach(x=>x.classList.remove("dragging","drag-over-top","drag-over-bot"));}
+
+// ── TOUCH DRAG SORT (mobile) ──────────────────────────────────────────────────
+let touchDragId=null,touchDragType=null,touchClone=null,touchStartY=0,touchStartX=0;
+
+function touchSortStart(e,id,type){
+  if(e.touches.length!==1)return;
+  // For main gantt rows: only start from label column
+  if((type==="task"||type==="group")&&!e.target.closest('.rl'))return;
+  touchDragId=id;touchDragType=type;
+  touchStartY=e.touches[0].clientY;touchStartX=e.touches[0].clientX;
+  // Find source row
+  let row;
+  if(type==="task") row=document.querySelector(`[data-tid="${id}"]`);
+  else if(type==="group") row=document.querySelector(`[data-gkey="${id}"].grow`);
+  else row=document.querySelector(`.grp-list-item[data-gkey="${id}"]`);
+  if(!row)return;
+  touchClone=row.cloneNode(true);
+  const rl=row.querySelector('.rl');
+  const w=rl?rl.offsetWidth:row.offsetWidth;
+  touchClone.style.cssText=`position:fixed;left:12px;top:${row.getBoundingClientRect().top}px;width:${w}px;z-index:999;opacity:.85;pointer-events:none;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;`;
+  document.body.appendChild(touchClone);
+  row.classList.add("dragging");
+  e.preventDefault();
+}
+
+document.addEventListener("touchmove",e=>{
+  if(!touchDragId||!touchClone)return;
+  e.preventDefault();
+  const t=e.touches[0];
+  touchClone.style.top=(t.clientY-20)+"px";
+  document.querySelectorAll(".trow,.grow,.grp-list-item").forEach(r=>r.classList.remove("drag-over-top","drag-over-bot"));
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  if(!el)return;
+  const row=el.closest(".trow")||el.closest(".grow")||el.closest(".grp-list-item");
+  if(!row)return;
+  const rect=row.getBoundingClientRect();
+  row.classList.add(t.clientY<rect.top+rect.height/2?"drag-over-top":"drag-over-bot");
+},{passive:false});
+
+document.addEventListener("touchend",e=>{
+  if(!touchDragId)return;
+  const t=e.changedTouches[0];
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  const targetRow=el&&(el.closest(".trow")||el.closest(".grow")||el.closest(".grp-list-item"));
+  document.querySelectorAll(".trow,.grow,.grp-list-item").forEach(r=>r.classList.remove("drag-over-top","drag-over-bot","dragging"));
+  if(touchClone){touchClone.remove();touchClone=null;}
+
+  if(targetRow&&touchDragType==="task"){
+    const toId=parseInt(targetRow.dataset.tid);
+    if(toId&&toId!==touchDragId){
+      const rect=targetRow.getBoundingClientRect();
+      const before=t.clientY<rect.top+rect.height/2;
+      const fromIdx=tasks.findIndex(tt=>tt.id===touchDragId);
+      const toIdx=tasks.findIndex(tt=>tt.id===toId);
+      if(fromIdx>=0&&toIdx>=0){
+        const moved=tasks.splice(fromIdx,1)[0];
+        const ni=tasks.findIndex(tt=>tt.id===toId);
+        tasks.splice(before?ni:ni+1,0,moved);
+        save();render();
+      }
+    }
+  }else if(targetRow&&(touchDragType==="group"||touchDragType==="grpmodal")){
+    const toKey=targetRow.dataset.gkey;
+    if(toKey&&toKey!==touchDragId){
+      const rect=targetRow.getBoundingClientRect();
+      const before=t.clientY<rect.top+rect.height/2;
+      const fromIdx=groups.findIndex(g=>g.key===touchDragId);
+      const toIdx=groups.findIndex(g=>g.key===toKey);
+      if(fromIdx>=0&&toIdx>=0){
+        const moved=groups.splice(fromIdx,1)[0];
+        const ni=groups.findIndex(g=>g.key===toKey);
+        groups.splice(before?ni:ni+1,0,moved);
+        reorderTasksByGroups();save();render();
+        if(touchDragType==="grpmodal")renderGrpList();
+      }
+    }
   }
-}
-function toggleSubPerson(name){
-  modalSubPersons=modalSubPersons.includes(name)?modalSubPersons.filter(n=>n!==name):[...modalSubPersons,name];
-  renderSubPersonChips(modalSubPersons);
-}
-function assignSubTeam(teamName){
-  const team=TEAMS.find(t=>t.name===teamName);if(!team)return;
-  const allOn=team.members.length>0&&team.members.every(m=>modalSubPersons.includes(m));
-  if(allOn){modalSubPersons=modalSubPersons.filter(m=>!team.members.includes(m));}
-  else{team.members.forEach(m=>{if(!modalSubPersons.includes(m))modalSubPersons.push(m);});}
-  renderSubPersonChips(modalSubPersons);
-}
-function renderSubComments(comments){
-  const wrap=document.getElementById("subCommentsList");if(!wrap)return;
-  wrap.innerHTML=(comments||[]).map((c,i)=>`
-    <div class="comment-item">
-      <div class="comment-meta">${esc(c.author||"–")} · ${c.date||""}</div>
-      <div class="comment-text">${esc(c.text)}</div>
-    </div>`).join("");
-}
+  touchDragId=null;touchDragType=null;
+},{passive:false});
+
+// ── SUBTASK FUNCTIONS ─────────────────────────────────────────────────────────
+let modalSubtasks=[];
 
 function renderSubtaskList(){
   const wrap=document.getElementById("subtaskList");if(!wrap)return;
@@ -1807,7 +1994,7 @@ function saveSubtask(){
   if(pd(end)<pd(start)){alert("Enddatum muss nach Startdatum liegen.");return;}
   const parentId=document.getElementById("subParentId").value;
   const idx=document.getElementById("subIdx").value;
-  const sub={task,start,end,status:document.getElementById("subStatus").value,assigned:document.getElementById("subAsgn").value.trim(),notes:document.getElementById("subNotes").value.trim(),persons:[...modalSubPersons]};
+  const sub={task,start,end,status:document.getElementById("subStatus").value,assigned:document.getElementById("subAsgn").value.trim()};
   if(parentId==="__modal__"){
     if(idx==="")modalSubtasks.push(sub);
     else modalSubtasks[parseInt(idx)]=sub;
@@ -1816,7 +2003,7 @@ function saveSubtask(){
     const t=tasks.find(t=>t.id===parseInt(parentId));if(!t)return;
     if(!t.subtasks)t.subtasks=[];
     if(idx==="")t.subtasks.push(sub);
-    else{const existing=t.subtasks[parseInt(idx)];sub.comments=existing.comments||[];t.subtasks[parseInt(idx)]=sub;}
+    else t.subtasks[parseInt(idx)]=sub;
     // Recompute parent dates
     const dates=getTaskDates(t);t.start=dates.start;t.end=dates.end;
     save();render();if(selId===parseInt(parentId))renderDetail(parseInt(parentId));closeModal("subModal");
@@ -1836,6 +2023,7 @@ function deleteSubtask(){
 function openSubModal(parentId,idx){
   const t=tasks.find(t=>t.id===parentId);if(!t)return;
   if(idx===-1){
+    // New subtask from detail panel
     document.getElementById("subMdTit").textContent="Neue Unteraufgabe";
     document.getElementById("subParentId").value=parentId;
     document.getElementById("subIdx").value="";
@@ -1844,10 +2032,7 @@ function openSubModal(parentId,idx){
     document.getElementById("subEnd").value=t.end;
     document.getElementById("subStatus").value="Offen";
     document.getElementById("subAsgn").value="";
-    document.getElementById("subNotes").value="";
     document.getElementById("subDelBtn").style.display="none";
-    document.getElementById("subCommentsSection").style.display="none";
-    modalSubPersons=[];renderSubPersonChips([]);
     document.getElementById("subModal").classList.add("open");
     document.getElementById("subTask").focus();
     return;
@@ -1862,15 +2047,7 @@ function openSubModal(parentId,idx){
   document.getElementById("subEnd").value=s.end;
   document.getElementById("subStatus").value=s.status||"Offen";
   document.getElementById("subAsgn").value=s.assigned||"";
-  document.getElementById("subNotes").value=s.notes||"";
   document.getElementById("subDelBtn").style.display="";
-  // Comments
-  const hasComments=s.comments&&s.comments.length>0;
-  document.getElementById("subCommentsSection").style.display=hasComments?"":"block";
-  if(hasComments)renderSubComments(s.comments);
-  else document.getElementById("subCommentsSection").style.display="block";
-  document.getElementById("subCommentInp").value="";
-  modalSubPersons=[...(s.persons||[])];renderSubPersonChips(modalSubPersons);
   document.getElementById("subModal").classList.add("open");
   document.getElementById("subTask").focus();
 }
@@ -1879,92 +2056,21 @@ function cycSubSt(parentId,idx){
   const t=tasks.find(t=>t.id===parentId);if(!t||!t.subtasks)return;
   const o=["Offen","In Arbeit","Erledigt"];
   t.subtasks[idx].status=o[(o.indexOf(t.subtasks[idx].status||"Offen")+1)%3];
-  save();render();if(selId===parentId)renderDetail(parentId);
+  save();render();
 }
 
 function updateParentDatesFromSubs(){
-  if(!modalSubtasks.length){
-    // Letzter Unteraufgabe entfernt — Fortschritt ausblenden
-    document.getElementById("fProgressWrap").style.display="none";
-    return;
-  }
+  if(!modalSubtasks.length)return;
   const mn=modalSubtasks.map(s=>pd(s.start)).reduce((a,b)=>a<b?a:b);
   const mx=modalSubtasks.map(s=>pd(s.end)).reduce((a,b)=>a>b?a:b);
   document.getElementById("fStart").value=fmt(mn);
   document.getElementById("fEnd").value=fmt(mx);
-  // Fortschritt automatisch aus Unteraufgaben aktualisieren
-  const autoPct=Math.round(modalSubtasks.filter(s=>s.status==="Erledigt").length/modalSubtasks.length*100);
-  document.getElementById("fProgress").value=autoPct;
-  document.getElementById("fProgress").style.display="none";
-  document.getElementById("fProgressAuto").style.display="block";
-  document.getElementById("fProgressLbl").textContent=autoPct+"%";
-  document.getElementById("fProgressWrap").style.display="";
 }
 
 // ── PERSONS MODAL ─────────────────────────────────────────────────────────────
 function openPersonsModal(){
   renderPersonsList();
-  renderTeamsList();
-  switchPersonTab('persons');
   document.getElementById("personsModal").classList.add("open");
-}
-
-function switchPersonTab(tab){
-  document.getElementById("tabPersons").style.display=tab==="persons"?"":"none";
-  document.getElementById("tabTeams").style.display=tab==="teams"?"":"none";
-  document.getElementById("tabPersonsBtn").style.borderBottomColor=tab==="persons"?"var(--accent)":"transparent";
-  document.getElementById("tabPersonsBtn").style.color=tab==="persons"?"var(--text)":"var(--muted)";
-  document.getElementById("tabPersonsBtn").style.fontWeight=tab==="persons"?"600":"400";
-  document.getElementById("tabTeamsBtn").style.borderBottomColor=tab==="teams"?"var(--accent)":"transparent";
-  document.getElementById("tabTeamsBtn").style.color=tab==="teams"?"var(--text)":"var(--muted)";
-  document.getElementById("tabTeamsBtn").style.fontWeight=tab==="teams"?"600":"400";
-}
-
-function renderTeamsList(){
-  const wrap=document.getElementById("teamsListWrap");if(!wrap)return;
-  if(!TEAMS.length){wrap.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:8px 0">Noch keine Teams definiert.</div>`;return;}
-  wrap.innerHTML=TEAMS.map((team,ti)=>`
-    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:10px 12px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <input class="fi" value="${esc(team.name)}" onchange="updateTeamName(${ti},this.value)" style="flex:1;margin:0;padding:5px 8px;font-size:13px;font-weight:600">
-        <button class="btn btn-d" style="padding:3px 9px;font-size:11px" onclick="deleteTeam(${ti})">✕</button>
-      </div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px">Mitglieder:</div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px">
-        ${PERSONS.map(p=>{
-          const on=team.members.includes(p.name);
-          return`<div onclick="toggleTeamMember(${ti},'${p.name}')" style="display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;cursor:pointer;font-size:11px;font-family:'IBM Plex Mono',monospace;border:1.5px solid ${on?p.color:'var(--border2)'};background:${on?p.color+'22':'transparent'};color:${on?p.color:'var(--muted)'};transition:all .12s">
-            <span style="width:12px;height:12px;border-radius:50%;background:${p.color};display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:#fff;font-weight:700;flex-shrink:0">${p.name[0]}</span>${p.name}
-          </div>`;
-        }).join("")}
-      </div>
-    </div>`).join("");
-}
-
-function addTeam(){
-  const name=document.getElementById("newTeamName").value.trim();
-  if(!name){alert("Bitte Teamname eingeben.");return;}
-  if(TEAMS.find(t=>t.name===name)){alert("Team bereits vorhanden.");return;}
-  TEAMS.push({name,members:[]});
-  document.getElementById("newTeamName").value="";
-  save();renderTeamsList();renderPersonChips(modalPersons);
-}
-
-function updateTeamName(i,val){
-  val=val.trim();if(!val)return;
-  TEAMS[i].name=val;save();renderPersonChips(modalPersons);
-}
-
-function deleteTeam(i){
-  if(!confirm(`„${TEAMS[i].name}" löschen?`))return;
-  TEAMS.splice(i,1);save();renderTeamsList();renderPersonChips(modalPersons);
-}
-
-function toggleTeamMember(ti,name){
-  const team=TEAMS[ti];
-  if(team.members.includes(name))team.members=team.members.filter(m=>m!==name);
-  else team.members.push(name);
-  save();renderTeamsList();
 }
 
 function renderPersonsList(){
@@ -1987,7 +2093,7 @@ function addPerson(){
   const color=document.getElementById("newPersonColor").value;
   PERSONS.push({name,color});
   document.getElementById("newPersonName").value="";
-  save();renderPersonsList();renderTeamsList();updateFilterOpts();
+  save();renderPersonsList();updateFilterOpts();
 }
 
 function updatePersonName(i,val){
@@ -2235,21 +2341,10 @@ function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").
 
 render();
 document.body.classList.add("classic");
-// Status-Option beim Start entfernen (Übersicht ist Standard, Safari ignoriert display:none auf <option>)
-const _so=document.querySelector("#sortSel option[value='status']");
-if(_so)_so.remove();
-// Heute-Datum im Header
-(function(){
-  const MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
-  const el=document.getElementById("hdrToday");
-  if(el)el.textContent="Heute: "+today.getDate()+". "+MONATE[today.getMonth()]+" "+today.getFullYear();
-})();
-// Heute-Linie standardmäßig AN
-prominentToday=true;
-document.body.classList.add("today-prominent");
-const _tb=document.getElementById("todayBtn");
-if(_tb)_tb.style.color="var(--accent)";
 setTimeout(scrollToToday,100);
+
+// Init Microsoft Auth
+msalInit();
 </script>
 </body>
 </html>
