@@ -936,17 +936,6 @@ async function graphGet(url){
   return resp.json();
 }
 
-async function graphPatch(url, body){
-  const token = await getToken();
-  const resp = await fetch("https://graph.microsoft.com/v1.0" + url, {
-    method: "PATCH",
-    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  if(!resp.ok) throw new Error(await resp.text());
-  return resp.status === 204 ? null : resp.json();
-}
-
 // ── PLANNER SYNC ──────────────────────────────────────────────────────────────
 // Bucket name → our internal key mapping
 const BUCKET_MAP = {
@@ -965,11 +954,6 @@ function pctToStatus(pct){
   if(pct === 100) return "completed";
   if(pct > 0)     return "in_progress";
   return "not_started";
-}
-function statusToPct(s){
-  if(s === "completed")  return 100;
-  if(s === "in_progress") return 50;
-  return 0;
 }
 
 function setSyncState(state, msg){
@@ -1065,26 +1049,6 @@ async function syncFromPlanner(){
     setTimeout(scrollToToday, 80);
   } catch(e) {
     setSyncState("err", "Fehler: " + e.message);
-    console.error(e);
-  }
-}
-
-// Write status back to Planner when changed in the UI
-async function writeStatusToPlanner(taskId, newStatus){
-  if(!plannerMeta[taskId]) return; // not a planner task
-  setSyncState("loading", "Speichere in Planner…");
-  try {
-    await graphPatch("/planner/tasks/" + taskId, {
-      percentComplete: statusToPct(newStatus)
-    });
-    // Update stored etag
-    const fresh = await graphGet("/planner/tasks/" + taskId);
-    if(plannerMeta[taskId]) plannerMeta[taskId].etag = fresh["@odata.etag"] || "";
-    const now = new Date();
-    const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
-    setSyncState("ok", `Gespeichert: ${timeStr}`);
-  } catch(e) {
-    setSyncState("err", "Fehler beim Speichern: " + e.message);
     console.error(e);
   }
 }
@@ -1314,7 +1278,7 @@ function render(){
 
           html += `<div class="gantt-row task-row${isSel?" selected":""}" onclick="selTask('${t.id}')">`;
           html += `<div class="rl" style="height:var(--row-h)">`;
-          html += `<div class="status-pill ${pillCls}" onclick="event.stopPropagation();cycleStatus('${t.id}')" title="Status wechseln">`;
+          html += `<div class="status-pill ${pillCls}" title="${ST[t.status].label}">`;
           html += `<span class="status-pill-dot" style="background:${pillDotColor}"></span>${pillLabel}`;
           html += `</div>`;
           html += `<div class="task-name${done?" done":""}">${esc(t.name)}</div>`;
@@ -1460,14 +1424,7 @@ function startAutoSync(){
   });
 }
 
-function cycleStatus(id){
-  const t = TASKS.find(t=>String(t.id)===String(id)); if(!t) return;
-  const order = ["not_started","in_progress","completed"];
-  t.status = order[(order.indexOf(t.status)+1)%3];
-  render();
-  if(String(selectedId)===String(id)) renderDetail(id);
-  writeStatusToPlanner(id, t.status);
-}
+function cycleStatus(id){ /* read-only – Status nur in Planner ändern */ }
 
 function selTask(id){
   selectedId = String(selectedId)===String(id) ? null : id;
@@ -1483,6 +1440,9 @@ function renderDetail(id){
   const days = Math.round((pd(t.end)-pd(t.start))/864e5)+1;
   const isPoint = t.start === t.end;
   const overdue = t.status !== "completed" && pd(t.end) < today;
+  const pillCls = t.status==="completed"?"completed":t.status==="in_progress"?"in-progress":"not-started";
+  const pillLabel = t.status==="completed"?"Erledigt":t.status==="in_progress"?"Aktiv":"Offen";
+  const pillDotColor = t.status==="completed"?"var(--accent)":t.status==="in_progress"?"var(--today)":"var(--muted)";
 
   document.getElementById("detailInner").innerHTML = `
     <div style="position:relative;padding-top:2px">
@@ -1492,25 +1452,20 @@ function renderDetail(id){
       <div class="dp-row">
         <div class="dp-label">Status</div>
         <div class="dp-value">
-          <select onchange="setTaskStatus('${id}',this.value)" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:5px;padding:3px 7px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer">
-            ${Object.entries(ST).map(([k,v])=>`<option value="${k}"${t.status===k?" selected":""}>${v.label}</option>`).join("")}
-          </select>
+          <span class="status-pill ${pillCls}" style="cursor:default">
+            <span class="status-pill-dot" style="background:${pillDotColor}"></span>${pillLabel}
+          </span>
         </div>
       </div>
       <div class="dp-row"><div class="dp-label">Start</div><div class="dp-value">${fde(t.start)}</div></div>
       <div class="dp-row"><div class="dp-label">Ende</div><div class="dp-value"${overdue?' style="color:var(--today)"':''}>${fde(t.end)}</div></div>
       <div class="dp-row"><div class="dp-label">Dauer</div><div class="dp-value">${isPoint?"Einzeltermin":days+" Tage"}</div></div>
-      ${plannerMeta[id]?`<div class="dp-row"><div class="dp-label">Planner</div><div class="dp-value" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">✓ verknüpft</div></div>`:""}
+      <div class="dp-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div class="dp-label" style="color:var(--dim)">Hinweis</div>
+        <div class="dp-value" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim)">Status in Planner ändern</div>
+      </div>
     </div>`;
   document.getElementById("detailPanel").classList.add("open");
-}
-
-function setTaskStatus(id, val){
-  const t = TASKS.find(t=>String(t.id)===String(id)); if(!t) return;
-  t.status = val;
-  render();
-  renderDetail(id);
-  writeStatusToPlanner(id, val);
 }
 
 function closeDetail(){
@@ -1707,8 +1662,10 @@ document.getElementById("ganttScroll").addEventListener("wheel", e=>{
 window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change", ()=>render());
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-render(); // show demo data while auth loads
-initAuth(); // then replace with real Planner data
+// Kein Demo-Render – leerer Zustand bis Planner geladen hat
+TASKS = [];
+render();
+initAuth();
 </script>
 </body>
 </html>
