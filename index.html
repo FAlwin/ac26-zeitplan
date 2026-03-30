@@ -693,7 +693,7 @@ body{
     </svg>
   </div>
   <div>
-    <div class="title">Zeitplan · AC 2026</div>
+    <div class="title" id="appTitle">Zeitplan · AC 2026</div>
     <div class="subtitle">Zeltlager · Christliche Zeltlagerarbeit e.V.</div>
   </div>
   <div class="hdr-right">
@@ -994,7 +994,14 @@ async function findPlanId(){
     try {
       const plans = await graphGet("/groups/" + g.id + "/planner/plans");
       const plan = plans.value.find(p => p.title === "AC26 Planboard");
-      if(plan){ PLAN_ID = plan.id; return PLAN_ID; }
+      if(plan){
+        PLAN_ID = plan.id;
+        // Titel aus Planner übernehmen
+        const titleEl = document.getElementById("appTitle");
+        if(titleEl) titleEl.textContent = plan.title;
+        document.title = plan.title;
+        return PLAN_ID;
+      }
     } catch(e){ /* Gruppe hat möglicherweise kein Planner */ }
   }
   throw new Error("Plan 'AC26 Planboard' nicht gefunden. Bitte sicherstellen dass du Mitglied der Gruppe bist.");
