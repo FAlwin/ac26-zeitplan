@@ -1458,43 +1458,48 @@ function render(){
     const color = bucket.color;
 
     if(isMS){
-      // Milestone group – single row with all milestones
-      html += `<div class="gantt-row ms-group-row">`;
-      html += `<div class="rl ms-group-row" style="height:var(--ms-row-h)">`;
+      const isC = collapsed[bucket.key];
+      html += `<div class="gantt-row ms-group-row${isC?" collapsed":""}">`;
+      html += `<div class="rl ms-group-row" style="height:var(--ms-row-h);cursor:pointer" onclick="togGroup('${bucket.key}')">`;
       html += `<div style="width:6px;height:6px;transform:rotate(45deg);border-radius:1px;background:${color};flex-shrink:0"></div>`;
-      html += `<span class="ms-group-label">${esc(bucket.name)}</span>`;
+      html += `<span class="ms-group-label" style="flex:1">${esc(bucket.name)}</span>`;
+      html += `<span class="collapse-icon" style="color:${color}">▾</span>`;
       html += `</div>`;
+      if(isC){
+        html += `<div class="ms-tbars" style="width:${totalW}px;background:${color}0d;border-bottom:1px solid ${color}22"></div></div>`;
+        return;
+      }
       html += `<div class="ms-tbars" style="width:${totalW}px;background:${color}0d;border-bottom:1px solid ${color}22">`;
       if(tx>0) html += `<div class="today-line" style="left:${tx}px"><div class="today-label">Heute</div></div>`;
-      // Horizontal centre line
       html += `<div class="ms-timeline"></div>`;
       let msIdx = 0;
+      const centerY = 45;
       btasks.forEach(t => {
         const isPoint = t.start === t.end;
         const done = t.status === "completed";
         const above = msIdx % 2 === 0;
-        const centerY = 45;
         const opacity = done ? 0.35 : 1;
+        const labelStyle = `opacity:${opacity};border-color:${color}55;color:${done?"var(--muted)":color};background:var(--bg);`;
 
         if(isPoint){
           const x = cx(t.start);
           if(above){
-            html += `<div class="ms-flag" style="left:${x}px;top:0;height:${centerY+6}px;transform:translateX(-50%)" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-            html += `<div class="ms-flag-label" style="opacity:${opacity};border-color:${color}55;color:${done?"var(--muted)":color}">${esc(t.name)}</div>`;
-            html += `<div class="ms-flag-line" style="flex:1;background:${color};opacity:${opacity*.5}"></div>`;
-            html += `<div class="ms-flag-dot" style="width:12px;height:12px;background:${color};transform:rotate(45deg);border-radius:2px;opacity:${opacity};flex-shrink:0;margin-bottom:-6px"></div>`;
+            // Raute auf Linie, Kästchen beginnt an Raute, geht nach oben-rechts
+            html += `<div style="position:absolute;left:${x}px;top:${centerY-6}px;cursor:pointer;transform:translateX(-50%)" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
+            html += `<div style="width:12px;height:12px;background:${color};transform:rotate(45deg);border-radius:2px;opacity:${opacity};position:relative;z-index:2"></div>`;
+            html += `<div class="ms-flag-label" style="position:absolute;bottom:8px;left:8px;${labelStyle}transform:rotate(-45deg);transform-origin:left bottom;white-space:nowrap">${esc(t.name)}</div>`;
             html += `</div>`;
           } else {
-            html += `<div class="ms-flag" style="left:${x}px;top:${centerY-6}px;height:${90-centerY+6}px;transform:translateX(-50%)" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-            html += `<div class="ms-flag-dot" style="width:12px;height:12px;background:${color};transform:rotate(45deg);border-radius:2px;opacity:${opacity};flex-shrink:0;margin-top:-6px"></div>`;
-            html += `<div class="ms-flag-line" style="flex:1;background:${color};opacity:${opacity*.5}"></div>`;
-            html += `<div class="ms-flag-label" style="opacity:${opacity};border-color:${color}55;color:${done?"var(--muted)":color}">${esc(t.name)}</div>`;
+            // Raute auf Linie, Kästchen beginnt an Raute, geht nach unten-rechts (gespiegelt)
+            html += `<div style="position:absolute;left:${x}px;top:${centerY-6}px;cursor:pointer;transform:translateX(-50%)" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
+            html += `<div style="width:12px;height:12px;background:${color};transform:rotate(45deg);border-radius:2px;opacity:${opacity};position:relative;z-index:2"></div>`;
+            html += `<div class="ms-flag-label" style="position:absolute;top:8px;left:8px;${labelStyle}transform:rotate(45deg);transform-origin:left top;white-space:nowrap">${esc(t.name)}</div>`;
             html += `</div>`;
           }
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
           html += `<div style="position:absolute;left:${x}px;top:0;width:${Math.max(w2,80)}px;cursor:pointer" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-          html += `<div class="ms-flag-label" style="position:relative;margin:6px auto 4px;width:fit-content;opacity:${opacity};border-color:${color}55;color:${done?"var(--muted)":color};max-width:${Math.max(w2+40,100)}px;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>`;
+          html += `<div class="ms-flag-label" style="position:relative;margin:6px auto 4px;width:fit-content;${labelStyle}max-width:${Math.max(w2+40,100)}px;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>`;
           html += `<div style="position:absolute;top:${centerY-6}px;left:0;width:${w2}px;height:12px;background:${color};border-radius:6px;opacity:${opacity}"></div>`;
           html += `</div>`;
         }
