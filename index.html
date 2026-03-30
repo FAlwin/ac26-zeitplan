@@ -762,21 +762,28 @@ const MSAL_CONFIG = {
   cache: { cacheLocation: "sessionStorage" }
 };
 const SCOPES = ["Tasks.ReadWrite", "User.Read"];
-const msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+let _msal = null;
 let currentAccount = null;
-let PLAN_ID = null; // will be resolved from Graph
+let PLAN_ID = null;
+
+async function getMsal(){
+  if(!_msal){
+    _msal = new msal.PublicClientApplication(MSAL_CONFIG);
+    await _msal.initialize();
+  }
+  return _msal;
+}
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 async function initAuth(){
-  await msalInstance.initialize();
-  // Handle redirect response
+  const m = await getMsal();
   try {
-    const resp = await msalInstance.handleRedirectPromise();
+    const resp = await m.handleRedirectPromise();
     if(resp) currentAccount = resp.account;
   } catch(e){ console.warn("Redirect handling:", e); }
 
   if(!currentAccount){
-    const accounts = msalInstance.getAllAccounts();
+    const accounts = m.getAllAccounts();
     if(accounts.length) currentAccount = accounts[0];
   }
 
@@ -784,13 +791,13 @@ async function initAuth(){
     showApp();
     await syncFromPlanner();
   }
-  // else: login screen stays visible
 }
 
 async function doLogin(){
   setLoginHint("Fenster wird geöffnet…");
   try {
-    const resp = await msalInstance.loginPopup({scopes: SCOPES});
+    const m = await getMsal();
+    const resp = await m.loginPopup({scopes: SCOPES});
     currentAccount = resp.account;
     showApp();
     await syncFromPlanner();
@@ -799,9 +806,10 @@ async function doLogin(){
   }
 }
 
-function doLogout(){
+async function doLogout(){
   if(!confirm("Abmelden?")) return;
-  msalInstance.logoutPopup({account: currentAccount});
+  const m = await getMsal();
+  m.logoutPopup({account: currentAccount});
   currentAccount = null;
   document.getElementById("loginScreen").style.display = "flex";
   document.getElementById("syncBtn").disabled = true;
@@ -821,12 +829,13 @@ function showApp(){
 function setLoginHint(msg){ document.getElementById("loginHint").textContent = msg; }
 
 async function getToken(){
+  const m = await getMsal();
   const req = { scopes: SCOPES, account: currentAccount };
   try {
-    const resp = await msalInstance.acquireTokenSilent(req);
+    const resp = await m.acquireTokenSilent(req);
     return resp.accessToken;
   } catch(e) {
-    const resp = await msalInstance.acquireTokenPopup(req);
+    const resp = await m.acquireTokenPopup(req);
     return resp.accessToken;
   }
 }
