@@ -773,7 +773,12 @@ body{
 
 <!-- MAIN -->
 <div class="main">
-  <div class="gantt-wrap">
+  <div class="gantt-wrap" style="position:relative">
+    <!-- Ladeindikator -->
+    <div id="loadingOverlay" style="display:none;position:absolute;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+      <div style="width:28px;height:28px;border:2px solid var(--dim);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite"></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)">Lade Planner-Daten…</div>
+    </div>
     <div class="gantt-scroll" id="ganttScroll">
       <div class="gantt-inner" id="ganttInner"></div>
     </div>
@@ -910,6 +915,7 @@ function showApp(){
   const name = currentAccount.name || currentAccount.username;
   document.getElementById("authName").textContent = name.split(" ")[0];
   document.getElementById("authAvatar").textContent = name[0].toUpperCase();
+  showLoading(true);
   startAutoSync();
 }
 
@@ -956,6 +962,11 @@ function pctToStatus(pct){
   return "not_started";
 }
 
+function showLoading(on){
+  const el = document.getElementById("loadingOverlay");
+  if(el) el.style.display = on ? "flex" : "none";
+}
+
 function setSyncState(state, msg){
   const dot = document.getElementById("syncDot");
   const msgEl = document.getElementById("syncMsg");
@@ -996,6 +1007,7 @@ let bucketIdMap = {}; // bucketName → bucketId
 async function syncFromPlanner(){
   if(!currentAccount) return;
   setSyncState("loading", "Synchronisiere mit Planner…");
+  showLoading(true);
   try {
     const planId = await findPlanId();
 
@@ -1045,10 +1057,12 @@ async function syncFromPlanner(){
     const now = new Date();
     const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
     setSyncState("ok", `Zuletzt synchronisiert: ${timeStr} · ${TASKS.length} Aufgaben`);
+    showLoading(false);
     render();
     setTimeout(scrollToToday, 80);
   } catch(e) {
     setSyncState("err", "Fehler: " + e.message);
+    showLoading(false);
     console.error(e);
   }
 }
@@ -1213,6 +1227,18 @@ function render(){
   const totalW = cols.reduce((a,c)=>a+c.w,0);
   const vtasks = visibleTasks();
   let html = "";
+
+  // Leerer Zustand
+  if(!TASKS.length){
+    document.getElementById("ganttInner").innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;gap:10px;color:var(--muted)">
+        <div style="font-size:28px;opacity:.3">📋</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px">Keine Aufgaben geladen</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim)">Aufgaben in Planner brauchen ein Start- und Fälligkeitsdatum</div>
+      </div>`;
+    updateStats();
+    return;
+  }
 
   // ── Header
   html += buildHeader(totalW);
