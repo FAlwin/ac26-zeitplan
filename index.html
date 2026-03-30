@@ -626,11 +626,13 @@ body{
   padding:2px 7px;border-radius:10px;
   font-family:'IBM Plex Mono',monospace;
   font-size:9px;font-weight:600;
-  flex-shrink:0;cursor:pointer;
-  transition:all .13s;white-space:nowrap;
+  flex-shrink:0;
+  white-space:nowrap;
   border:1px solid transparent;
+  cursor:default;
+  user-select:none;
 }
-.status-pill:hover{filter:brightness(1.1)}
+/* No hover effect - read only */
 .status-pill.not-started{
   background:var(--surface2);
   color:var(--muted);
@@ -659,7 +661,117 @@ body{
 .status-pill-dot{
   width:5px;height:5px;border-radius:50%;flex-shrink:0;
 }
-</style>
+
+/* ── DONE TOGGLE – fixed size, clear state ── */
+.done-toggle{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:6px;
+  border:1px solid var(--border2);
+  background:transparent;color:var(--muted);
+  font-family:'IBM Plex Mono',monospace;font-size:11px;
+  cursor:pointer;transition:all .13s;flex-shrink:0;
+  white-space:nowrap;
+  min-width:90px;justify-content:center;
+}
+.done-toggle:hover{background:var(--surface2);color:var(--text)}
+.done-toggle.hidden{
+  background:var(--surface2);
+  color:var(--text);
+  border-color:var(--border2);
+  text-decoration:line-through;
+  opacity:.7;
+}
+.done-toggle-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);flex-shrink:0;
+  transition:opacity .13s;
+}
+.done-toggle.hidden .done-toggle-dot{opacity:.3}
+
+/* ── GROUP MULTISELECT ── */
+.group-filter-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 9px;border-radius:6px;
+  background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;
+  cursor:pointer;flex-shrink:0;white-space:nowrap;
+  transition:all .13s;
+}
+.group-filter-btn:hover{background:var(--surface3)}
+.group-filter-btn.filtered{border-color:var(--accent);color:var(--accent)}
+
+.group-picker{
+  position:fixed;z-index:50;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:10px;
+  padding:10px;
+  min-width:180px;
+  box-shadow:0 8px 24px rgba(0,0,0,.15);
+  display:none;
+}
+.group-picker.open{display:block}
+.group-picker-item{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 8px;border-radius:6px;
+  cursor:pointer;font-size:12px;
+  transition:background .1s;
+  user-select:none;
+}
+.group-picker-item:hover{background:var(--surface2)}
+.group-picker-check{
+  width:14px;height:14px;border-radius:3px;
+  border:1.5px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:9px;
+  transition:all .12s;
+}
+.group-picker-check.checked{
+  background:var(--accent);border-color:var(--accent);color:var(--accent-fg);
+}
+.group-picker-dot{
+  width:7px;height:7px;border-radius:1px;flex-shrink:0;
+}
+.group-picker-divider{
+  height:1px;background:var(--border);margin:5px 0;
+}
+.group-picker-all{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  color:var(--muted);padding:4px 8px;cursor:pointer;
+  border-radius:4px;
+}
+.group-picker-all:hover{background:var(--surface2);color:var(--text)}
+
+/* ── MILESTONE POPUP ── */
+.ms-popup{
+  position:fixed;z-index:40;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:10px;
+  padding:14px 16px;
+  min-width:200px;max-width:260px;
+  box-shadow:0 8px 24px rgba(0,0,0,.15);
+  display:none;
+  pointer-events:auto;
+}
+.ms-popup.open{display:block}
+.ms-popup-title{font-size:13px;font-weight:700;margin-bottom:8px;line-height:1.3}
+.ms-popup-row{
+  display:flex;gap:8px;font-size:11px;margin-bottom:5px;
+}
+.ms-popup-label{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:10px;width:50px;flex-shrink:0}
+.ms-popup-close{
+  position:absolute;top:8px;right:8px;
+  background:none;border:none;color:var(--muted);
+  cursor:pointer;font-size:13px;padding:2px;
+}
+.ms-popup-close:hover{color:var(--text)}
+
+/* Bottom padding for mobile */
+.main{padding-bottom:env(safe-area-inset-bottom)}
+@media(max-width:640px){
+  body{padding-bottom:8px}
+}</style>
 </head>
 <body>
 
@@ -738,13 +850,20 @@ body{
     <option value="in_progress">In Bearbeitung</option>
     <option value="completed">Abgeschlossen</option>
   </select>
-  <select class="filter-sel" id="bucketFilter" onchange="setBucketFilter(this.value)">
-    <option value="ALL">Alle Gruppen</option>
-  </select>
-  <div class="sep"></div>
-  <button class="btn btn-ghost" id="doneToggle" onclick="toggleDone()">
-    <span id="doneIcon">◉</span><span class="btn-text"> Erledigt</span>
+  <button class="group-filter-btn" id="groupFilterBtn" onclick="toggleGroupPicker(event)">
+    <span id="groupFilterLabel">Alle Gruppen</span> ▾
   </button>
+  <div class="sep"></div>
+  <button class="done-toggle" id="doneToggle" onclick="toggleDone()">
+    <span class="done-toggle-dot"></span><span id="doneLabel">Erledigt</span>
+  </button>
+</div>
+
+<!-- GROUP PICKER -->
+<div class="group-picker" id="groupPicker">
+  <div class="group-picker-all" onclick="selectAllGroups()">Alle auswählen</div>
+  <div class="group-picker-divider"></div>
+  <div id="groupPickerItems"></div>
 </div>
 
 <!-- STATS + LEGEND -->
@@ -786,6 +905,16 @@ body{
   <div class="dp" id="detailPanel">
     <div class="dp-inner" id="detailInner"></div>
   </div>
+</div>
+
+<!-- MILESTONE POPUP -->
+<div class="ms-popup" id="msPopup">
+  <button class="ms-popup-close" onclick="closeMsPopup()">✕</button>
+  <div class="ms-popup-title" id="msPopupTitle"></div>
+  <div class="ms-popup-row"><div class="ms-popup-label">Status</div><div id="msPopupStatus"></div></div>
+  <div class="ms-popup-row"><div class="ms-popup-label">Start</div><div id="msPopupStart"></div></div>
+  <div class="ms-popup-row"><div class="ms-popup-label">Ende</div><div id="msPopupEnd"></div></div>
+  <div class="ms-popup-row"><div class="ms-popup-label">Dauer</div><div id="msPopupDur"></div></div>
 </div>
 
 <!-- PDF MODAL -->
@@ -974,17 +1103,15 @@ function setSyncState(state, msg){
 }
 
 async function findPlanId(){
-  if(PLAN_ID) return PLAN_ID;
-  // Alle Gruppen laden und nach "AC26 Planboard" suchen
+  // Immer neu laden damit Titeländerungen synchronisiert werden
   const groups = await graphGet("/me/memberOf?$select=id,displayName");
   for(const g of groups.value){
     if(!g.id) continue;
     try {
       const plans = await graphGet("/groups/" + g.id + "/planner/plans");
-      const plan = plans.value.find(p => p.title === "AC26 Planboard");
+      const plan = plans.value.find(p => p.title.includes("Planboard") || p.title.includes("Zeitplan") || (PLAN_ID && p.id === PLAN_ID));
       if(plan){
         PLAN_ID = plan.id;
-        // Titel aus Planner übernehmen
         const titleEl = document.getElementById("appTitle");
         if(titleEl) titleEl.textContent = plan.title;
         document.title = plan.title;
@@ -992,7 +1119,9 @@ async function findPlanId(){
       }
     } catch(e){ /* Gruppe hat möglicherweise kein Planner */ }
   }
-  throw new Error("Plan 'AC26 Planboard' nicht gefunden. Bitte sicherstellen dass du Mitglied der Gruppe bist.");
+  // Fallback: vorherige Plan-ID benutzen falls vorhanden
+  if(PLAN_ID) return PLAN_ID;
+  throw new Error("Plan nicht gefunden. Bitte sicherstellen dass du Mitglied der Gruppe bist.");
 }
 
 // Store planner task IDs and eTags
@@ -1145,7 +1274,7 @@ let cols = [];
 let collapsed = {};
 let selectedId = null;
 let statusFilter = "ALL";
-let bucketFilter = "ALL";
+let selectedBuckets = new Set(); // empty = all visible
 let showDone = true;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -1229,7 +1358,7 @@ function bw(s,e){return Math.max(xDate(ad(pd(e),1),cols)-cx(s),4);}
 function visibleTasks(){
   return TASKS.filter(t => {
     if(!showDone && t.status === "completed") return false;
-    if(bucketFilter !== "ALL" && t.bucket !== bucketFilter) return false;
+    if(selectedBuckets.size > 0 && !selectedBuckets.has(t.bucket)) return false;
     if(statusFilter !== "ALL" && t.status !== statusFilter) return false;
     return true;
   });
@@ -1263,7 +1392,7 @@ function render(){
   // ── Rows
   BUCKETS.forEach(bucket => {
     const btasks = vtasks.filter(t => t.bucket === bucket.key);
-    if(!btasks.length && bucketFilter !== "ALL") return;
+    if(!btasks.length && selectedBuckets.size > 0) return;
     const isMS = bucket.isMilestone;
     const isC = collapsed[bucket.key];
     const color = bucket.color;
@@ -1276,18 +1405,16 @@ function render(){
       html += `<span class="ms-group-label">${esc(bucket.name)}</span>`;
       html += `</div>`;
       html += `<div class="ms-tbars" style="width:${totalW}px;background:${color}0d;border-bottom:1px solid ${color}22">`;
-      // Today line with label (only on milestone row = top)
       if(tx>0) html += `<div class="today-line" style="left:${tx}px"><div class="today-label">Heute</div></div>`;
       btasks.forEach(t => {
         const isPoint = t.start === t.end;
         const done = t.status === "completed";
-        const stColor = statusColor(t.status, color);
         if(isPoint){
           const x = cx(t.start);
-          html += `<div class="ms-diamond" style="left:${x-9}px;top:13px;background:${color};${done?"opacity:.35":""}" onclick="selTask(${t.id})" title="${esc(t.name)}"></div>`;
+          html += `<div class="ms-diamond" style="left:${x-9}px;top:13px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}"></div>`;
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
-          html += `<div class="ms-bar" style="left:${x}px;width:${w2}px;background:${color};${done?"opacity:.35":""}" onclick="selTask(${t.id})" title="${esc(t.name)}">`;
+          html += `<div class="ms-bar" style="left:${x}px;width:${w2}px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
           if(w2 > 50) html += `<span class="ms-bar-label">${esc(t.name)}</span>`;
           html += `</div>`;
         }
@@ -1426,14 +1553,140 @@ function toggleDone(){
 }
 
 function setStatusFilter(v){ statusFilter = v; render(); }
-function setBucketFilter(v){ bucketFilter = v; render(); }
 
-function updateBucketFilter(){
-  const sel = document.getElementById("bucketFilter");
-  const cur = sel.value;
-  sel.innerHTML = `<option value="ALL">Alle Gruppen</option>` +
-    BUCKETS.filter(b=>!b.isMilestone).map(b=>`<option value="${b.key}"${b.key===cur?" selected":""}>${b.name}</option>`).join("");
+// ── GROUP MULTISELECT ─────────────────────────────────────────────────────────
+let groupPickerOpen = false;
+
+function toggleGroupPicker(e){
+  e.stopPropagation();
+  const picker = document.getElementById("groupPicker");
+  groupPickerOpen = !groupPickerOpen;
+  if(groupPickerOpen){
+    renderGroupPicker();
+    // Position below button
+    const btn = document.getElementById("groupFilterBtn");
+    const rect = btn.getBoundingClientRect();
+    picker.style.top = (rect.bottom + 6) + "px";
+    picker.style.left = rect.left + "px";
+    picker.classList.add("open");
+  } else {
+    picker.classList.remove("open");
+  }
 }
+
+document.addEventListener("click", e => {
+  if(!e.target.closest("#groupPicker") && !e.target.closest("#groupFilterBtn")){
+    document.getElementById("groupPicker").classList.remove("open");
+    groupPickerOpen = false;
+  }
+});
+
+function renderGroupPicker(){
+  const wrap = document.getElementById("groupPickerItems");
+  wrap.innerHTML = BUCKETS.filter(b=>!b.isMilestone).map(b => {
+    const checked = selectedBuckets.size === 0 || selectedBuckets.has(b.key);
+    return `<div class="group-picker-item" onclick="toggleBucketSel('${b.key}')">
+      <div class="group-picker-check${checked?" checked":""}">✓</div>
+      <div class="group-picker-dot" style="background:${b.color}"></div>
+      <span style="font-size:12px">${esc(b.name)}</span>
+    </div>`;
+  }).join("");
+}
+
+function toggleBucketSel(key){
+  // If all selected, start fresh with just this one deselected
+  if(selectedBuckets.size === 0){
+    BUCKETS.filter(b=>!b.isMilestone).forEach(b => { if(b.key !== key) selectedBuckets.add(b.key); });
+  } else if(selectedBuckets.has(key)){
+    selectedBuckets.delete(key);
+    // If none left, show all
+    if(selectedBuckets.size === 0) selectedBuckets = new Set();
+  } else {
+    selectedBuckets.add(key);
+    // If all selected, reset to empty (= all)
+    const total = BUCKETS.filter(b=>!b.isMilestone).length;
+    if(selectedBuckets.size === total) selectedBuckets = new Set();
+  }
+  updateGroupFilterBtn();
+  renderGroupPicker();
+  render();
+}
+
+function selectAllGroups(){
+  selectedBuckets = new Set();
+  updateGroupFilterBtn();
+  renderGroupPicker();
+  render();
+}
+
+function updateGroupFilterBtn(){
+  const btn = document.getElementById("groupFilterBtn");
+  const lbl = document.getElementById("groupFilterLabel");
+  if(!btn || !lbl) return;
+  if(selectedBuckets.size === 0){
+    lbl.textContent = "Alle Gruppen";
+    btn.classList.remove("filtered");
+  } else if(selectedBuckets.size === 1){
+    const b = BUCKETS.find(b=>b.key===[...selectedBuckets][0]);
+    lbl.textContent = b ? b.name : "1 Gruppe";
+    btn.classList.add("filtered");
+  } else {
+    lbl.textContent = selectedBuckets.size + " Gruppen";
+    btn.classList.add("filtered");
+  }
+}
+
+function updateBucketFilter(){ updateGroupFilterBtn(); }
+
+// ── DONE TOGGLE ───────────────────────────────────────────────────────────────
+function toggleDone(){
+  showDone = !showDone;
+  const btn = document.getElementById("doneToggle");
+  const lbl = document.getElementById("doneLabel");
+  if(btn) btn.classList.toggle("hidden", !showDone);
+  if(lbl) lbl.textContent = showDone ? "Erledigt" : "Erledigt";
+  render();
+}
+
+// ── MILESTONE POPUP ───────────────────────────────────────────────────────────
+function openMsPopup(e, id){
+  e.stopPropagation();
+  const t = TASKS.find(t=>String(t.id)===String(id)); if(!t) return;
+  const isPoint = t.start === t.end;
+  const days = Math.round((pd(t.end)-pd(t.start))/864e5)+1;
+  const pillCls = t.status==="completed"?"completed":t.status==="in_progress"?"in-progress":"not-started";
+  const pillLabel = t.status==="completed"?"Erledigt":t.status==="in_progress"?"Aktiv":"Offen";
+  const pillDotColor = t.status==="completed"?"var(--accent)":t.status==="in_progress"?"var(--today)":"var(--muted)";
+
+  document.getElementById("msPopupTitle").textContent = t.name;
+  document.getElementById("msPopupStatus").innerHTML = `<span class="status-pill ${pillCls}" style="cursor:default"><span class="status-pill-dot" style="background:${pillDotColor}"></span>${pillLabel}</span>`;
+  document.getElementById("msPopupStart").textContent = fde(t.start);
+  document.getElementById("msPopupEnd").textContent = isPoint ? "–" : fde(t.end);
+  document.getElementById("msPopupDur").textContent = isPoint ? "Einzeltermin" : days + " Tage";
+
+  const popup = document.getElementById("msPopup");
+  popup.classList.add("open");
+
+  // Position near click but within viewport
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX + 12, y = e.clientY + 12;
+  popup.style.display = "block";
+  const pw = popup.offsetWidth || 220, ph = popup.offsetHeight || 140;
+  if(x + pw > vw - 10) x = e.clientX - pw - 12;
+  if(y + ph > vh - 10) y = e.clientY - ph - 12;
+  popup.style.left = Math.max(10, x) + "px";
+  popup.style.top  = Math.max(10, y) + "px";
+}
+
+function closeMsPopup(){
+  document.getElementById("msPopup").classList.remove("open");
+}
+
+document.addEventListener("click", e => {
+  if(!e.target.closest("#msPopup") && !e.target.closest(".ms-diamond") && !e.target.closest(".ms-bar")){
+    closeMsPopup();
+  }
+});
 
 function updateStats(){
   const all = TASKS;
@@ -1536,17 +1789,40 @@ async function doExportPDF(){
   await new Promise(r=>setTimeout(r,60));
 
   try{
-    const pw=297, ph=210, margin=8;
+    const margin=8;
     const DPI=200, mmToPx=DPI/25.4;
-    const usableW_mm=pw-margin*2, usableH_mm=ph-margin*2;
-    const usableW_px=Math.round(usableW_mm*mmToPx);
-    const labelPx=180, timelinePx=usableW_px-labelPx;
 
-    const pCols = buildColsPDF(pv, pd(from), pd(to), 1);
-    const baseW = pCols.reduce((a,c)=>a+c.w,0);
-    const fitZ  = baseW>0 ? timelinePx/baseW : 1;
-    const printCols = buildColsPDF(pv, pd(from), pd(to), fitZ);
-    const totalW = printCols.reduce((a,c)=>a+c.w,0);
+    // Berechne wie viele Zeilen wir haben
+    const rowCount = TASKS.length + BUCKETS.length + 2; // tasks + group headers + title + legend
+    const RH=22, rowsH = rowCount * RH + 60; // geschätzte Höhe in px
+
+    // A4 landscape: 297×210mm, A3 landscape: 420×297mm
+    const a4 = {pw:297, ph:210};
+    const a3 = {pw:420, ph:297};
+
+    const labelPx = 180;
+
+    // Probiere erst A4, wenn Inhalt nicht passt → A3
+    function calcFit(format){
+      const usableW_mm = format.pw - margin*2;
+      const usableH_mm = format.ph - margin*2;
+      const usableW_px = Math.round(usableW_mm * mmToPx);
+      const timelinePx = usableW_px - labelPx;
+      const pCols = buildColsPDF(pv, pd(from), pd(to), 1);
+      const baseW = pCols.reduce((a,c)=>a+c.w,0);
+      const fitZ = baseW>0 ? timelinePx/baseW : 1;
+      const printCols = buildColsPDF(pv, pd(from), pd(to), fitZ);
+      const totalW = printCols.reduce((a,c)=>a+c.w,0);
+      const imgH_mm = (rowsH / (labelPx+totalW)) * usableW_mm;
+      return {fits: imgH_mm <= usableH_mm, printCols, totalW, usableW_mm, usableH_mm};
+    }
+
+    let format = a4;
+    let {fits, printCols, totalW, usableW_mm, usableH_mm} = calcFit(a4);
+    if(!fits){
+      format = a3;
+      ({fits, printCols, totalW, usableW_mm, usableH_mm} = calcFit(a3));
+    }
 
     const printHTML = buildPrintHTML(printCols, totalW, labelPx, from, to, pv);
     const wrap = document.createElement("div");
@@ -1564,13 +1840,16 @@ async function doExportPDF(){
     document.body.removeChild(wrap);
 
     const {jsPDF} = window.jspdf;
-    const doc = new jsPDF({orientation:"landscape",unit:"mm",format:[pw,ph]});
+    const formatName = format === a3 ? "a3" : "a4";
+    const doc = new jsPDF({orientation:"landscape", unit:"mm", format:formatName});
     const imgData = canvas.toDataURL("image/jpeg", 0.98);
     const imgW_mm = usableW_mm;
     const imgH_mm = (canvas.height/canvas.width)*imgW_mm;
     if(imgH_mm <= usableH_mm) doc.addImage(imgData,"JPEG",margin,margin,imgW_mm,imgH_mm);
     else doc.addImage(imgData,"JPEG",margin,margin,imgW_mm*(usableH_mm/imgH_mm),usableH_mm);
-    doc.save("Zeitplan_AC2026.pdf");
+
+    const planTitle = document.getElementById("appTitle")?.textContent || "Zeitplan";
+    doc.save(`${planTitle.replace(/[^a-zA-Z0-9äöüÄÖÜ_\-]/g,"_")}.pdf`);
   } catch(err){
     alert("Fehler: "+err.message);
   }
@@ -1610,11 +1889,11 @@ function xDateP(dt, c, pv){
 
 function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
   const bg="#fef0e3", surf="#f5e4d0", bdr="rgba(10,71,56,.08)", bdr2="rgba(10,71,56,.16)", txt="#0a4738", mut="#5a8272";
-  const RH=22, GH=20, MSH=28, HDR=28;
+  const RH=22, GH=20, MSH=44, HDR=28;
   let h=`<div style="font-family:Arial,sans-serif;background:${bg};color:${txt}">`;
   // Title
   h+=`<div style="padding:7px 10px;border-bottom:1px solid ${bdr2};display:flex;justify-content:space-between;align-items:center;background:${surf}">`;
-  h+=`<span style="font-size:13px;font-weight:700">Zeitplan · AC 2026</span>`;
+  h+=`<span style="font-size:13px;font-weight:700">${esc(document.getElementById("appTitle")?.textContent||"Zeitplan")}</span>`;
   h+=`<span style="font-size:9px;color:${mut}">${fde(fromStr)} – ${fde(toStr)}</span></div>`;
   // Header
   h+=`<div style="display:flex;border-bottom:2px solid ${bdr2}">`;
@@ -1643,11 +1922,15 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
         const done=t.status==="completed";
         const op=done?.35:1;
         if(isP){
-          h+=`<div style="position:absolute;width:13px;height:13px;transform:rotate(45deg);border-radius:2px;background:${color};opacity:${op};left:${x-6}px;top:${(rowH-13)/2}px"></div>`;
+          // Diamond mit Label darunter
+          h+=`<div style="position:absolute;left:${x-6}px;top:2px;display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none">`;
+          h+=`<div style="width:13px;height:13px;transform:rotate(45deg);border-radius:2px;background:${color};opacity:${op}"></div>`;
+          h+=`<div style="font-size:7px;font-weight:700;color:${color};opacity:${op};white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;text-align:center;transform:translateX(0);line-height:1.2">${esc(t.name)}</div>`;
+          h+=`</div>`;
         } else {
           const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
           h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:18px;top:${(rowH-18)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center">`;
-          if(w2>50) h+=`<span style="font-size:9px;font-weight:700;padding:0 6px;color:rgba(255,255,255,.93);white-space:nowrap;overflow:hidden">${esc(t.name)}</span>`;
+          if(w2>30) h+=`<span style="font-size:9px;font-weight:700;padding:0 6px;color:rgba(255,255,255,.93);white-space:nowrap;overflow:hidden">${esc(t.name)}</span>`;
           h+=`</div>`;
         }
       });
