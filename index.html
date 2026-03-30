@@ -1075,7 +1075,7 @@ async function syncFromPlanner(){
       plannerMeta[pt.id] = { id: pt.id, etag: pt["@odata.etag"] || "" };
     });
 
-    TASKS = newTasks;
+    TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
     const now = new Date();
     const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
     setSyncState("ok", `Zuletzt synchronisiert: ${timeStr} · ${TASKS.length} Aufgaben`);
@@ -1537,7 +1537,7 @@ async function doExportPDF(){
 
   try{
     const pw=297, ph=210, margin=8;
-    const DPI=120, mmToPx=DPI/25.4;
+    const DPI=200, mmToPx=DPI/25.4;
     const usableW_mm=pw-margin*2, usableH_mm=ph-margin*2;
     const usableW_px=Math.round(usableW_mm*mmToPx);
     const labelPx=180, timelinePx=usableW_px-labelPx;
@@ -1557,7 +1557,7 @@ async function doExportPDF(){
     await new Promise(r=>setTimeout(r,280));
 
     const canvas = await html2canvas(wrap, {
-      backgroundColor:"#fef0e3", scale:3,
+      backgroundColor:"#fef0e3", scale:5,
       useCORS:true, allowTaint:true, logging:false,
       width:labelPx+totalW, height:wrap.scrollHeight
     });
@@ -1565,7 +1565,7 @@ async function doExportPDF(){
 
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:"landscape",unit:"mm",format:[pw,ph]});
-    const imgData = canvas.toDataURL("image/jpeg", 0.93);
+    const imgData = canvas.toDataURL("image/jpeg", 0.98);
     const imgW_mm = usableW_mm;
     const imgH_mm = (canvas.height/canvas.width)*imgW_mm;
     if(imgH_mm <= usableH_mm) doc.addImage(imgData,"JPEG",margin,margin,imgW_mm,imgH_mm);
