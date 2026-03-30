@@ -928,16 +928,17 @@ function setSyncState(state, msg){
 
 async function findPlanId(){
   if(PLAN_ID) return PLAN_ID;
-  // Find the plan named "AC26 Planboard" across all joined groups
-  const groups = await graphGet("/me/joinedGroups?$select=id,displayName");
+  // Alle Gruppen laden und nach "AC26 Planboard" suchen
+  const groups = await graphGet("/me/memberOf?$select=id,displayName");
   for(const g of groups.value){
+    if(!g.id) continue;
     try {
       const plans = await graphGet("/groups/" + g.id + "/planner/plans");
       const plan = plans.value.find(p => p.title === "AC26 Planboard");
       if(plan){ PLAN_ID = plan.id; return PLAN_ID; }
-    } catch(e){ /* group may not have planner */ }
+    } catch(e){ /* Gruppe hat möglicherweise kein Planner */ }
   }
-  throw new Error("Plan 'AC26 Planboard' nicht gefunden.");
+  throw new Error("Plan 'AC26 Planboard' nicht gefunden. Bitte sicherstellen dass du Mitglied der Gruppe bist.");
 }
 
 // Store planner task IDs and eTags for write-back
