@@ -528,9 +528,111 @@ body{
 #zs::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--accent);cursor:pointer}
 #zs::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--accent);cursor:pointer;border:none}
 .zl{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);min-width:30px;text-align:right}
+
+/* ── AUTH ── */
+.auth-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 12px;border-radius:6px;
+  border:1px solid var(--border2);
+  background:transparent;color:var(--muted);
+  font-family:'Syne',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .13s;flex-shrink:0;
+}
+.auth-btn:hover{background:var(--surface2);color:var(--text)}
+.auth-avatar{
+  width:22px;height:22px;border-radius:50%;
+  background:var(--accent);color:var(--accent-fg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;flex-shrink:0;
+}
+.sync-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:5px 12px;border-radius:6px;
+  border:none;background:var(--accent);color:var(--accent-fg);
+  font-family:'Syne',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .13s;flex-shrink:0;
+}
+.sync-btn:hover{opacity:.85}
+.sync-btn:disabled{opacity:.5;cursor:not-allowed}
+@keyframes rotate{to{transform:rotate(360deg)}}
+.spinning{animation:rotate .8s linear infinite;display:inline-block}
+
+/* ── SYNC STATUS BAR ── */
+.sync-bar{
+  padding:5px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  color:var(--muted);
+  background:var(--surface);
+}
+.sync-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--dim);flex-shrink:0;
+}
+.sync-dot.ok{background:#2d9e6a}
+.sync-dot.err{background:#c0392b}
+.sync-dot.loading{background:var(--today);animation:pulse .8s ease-in-out infinite alternate}
+@keyframes pulse{to{opacity:.3}}
+
+/* ── LOGIN SCREEN ── */
+.login-screen{
+  position:fixed;inset:0;
+  background:var(--bg);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:20px;z-index:200;
+}
+.login-card{
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:14px;
+  padding:32px 36px;
+  text-align:center;
+  max-width:340px;width:90%;
+}
+.login-logo{
+  width:44px;height:44px;
+  background:var(--accent);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+}
+.login-logo svg{width:22px;height:22px;fill:var(--accent-fg)}
+.login-title{font-size:18px;font-weight:800;margin-bottom:6px}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:22px;line-height:1.5}
+.login-btn{
+  width:100%;padding:10px;border-radius:8px;
+  border:none;background:var(--accent);color:var(--accent-fg);
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;transition:opacity .13s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.login-btn:hover{opacity:.85}
+.login-hint{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:12px}
 </style>
 </head>
 <body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="3" width="8" height="2.2" rx="1" fill="var(--accent-fg)"/>
+        <rect x="2" y="6.9" width="11" height="2.2" rx="1" fill="var(--accent-fg)"/>
+        <rect x="2" y="10.8" width="6" height="2.2" rx="1" fill="var(--accent-fg)"/>
+      </svg>
+    </div>
+    <div class="login-title">Zeitplan · AC 2026</div>
+    <div class="login-sub">Melde dich mit deinem Microsoft-Konto an um den Zeitplan zu öffnen.</div>
+    <button class="login-btn" onclick="doLogin()">
+      <svg width="16" height="16" viewBox="0 0 21 21" fill="currentColor"><path d="M0 0h10v10H0zm11 0h10v10H11zM0 11h10v10H0zm11 0h10v10H11z"/></svg>
+      Mit Microsoft anmelden
+    </button>
+    <div class="login-hint" id="loginHint"></div>
+  </div>
+</div>
 
 <!-- HEADER -->
 <div class="header">
@@ -546,10 +648,23 @@ body{
     <div class="subtitle">Zeltlager · Christliche Zeltlagerarbeit e.V.</div>
   </div>
   <div class="hdr-right">
+    <button class="sync-btn" id="syncBtn" onclick="syncFromPlanner()" disabled>
+      <span id="syncIcon">↻</span><span class="btn-text"> Synchronisieren</span>
+    </button>
     <button class="btn btn-ghost" onclick="openPdfModal()">
       <span>↓</span><span class="btn-text">PDF</span>
     </button>
+    <button class="auth-btn" id="authBtn" onclick="doLogout()" style="display:none">
+      <div class="auth-avatar" id="authAvatar">?</div>
+      <span id="authName"></span>
+    </button>
   </div>
+</div>
+
+<!-- SYNC STATUS BAR -->
+<div class="sync-bar" id="syncBar" style="display:none">
+  <div class="sync-dot" id="syncDot"></div>
+  <span id="syncMsg">Bereit</span>
 </div>
 
 <!-- TOOLBAR -->
@@ -634,8 +749,249 @@ body{
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/3.7.1/js/msal-browser.min.js"></script>
 
 <script>
+// ── MSAL CONFIG ───────────────────────────────────────────────────────────────
+const MSAL_CONFIG = {
+  auth: {
+    clientId: "7ed3329b-9519-4f28-a63c-94f2033d6c59",
+    authority: "https://login.microsoftonline.com/c8829a13-44bc-4793-96d5-1d06c2eab6ca",
+    redirectUri: window.location.origin + window.location.pathname,
+  },
+  cache: { cacheLocation: "sessionStorage" }
+};
+const SCOPES = ["Tasks.ReadWrite", "User.Read"];
+const msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+let currentAccount = null;
+let PLAN_ID = null; // will be resolved from Graph
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+async function initAuth(){
+  await msalInstance.initialize();
+  // Handle redirect response
+  try {
+    const resp = await msalInstance.handleRedirectPromise();
+    if(resp) currentAccount = resp.account;
+  } catch(e){ console.warn("Redirect handling:", e); }
+
+  if(!currentAccount){
+    const accounts = msalInstance.getAllAccounts();
+    if(accounts.length) currentAccount = accounts[0];
+  }
+
+  if(currentAccount){
+    showApp();
+    await syncFromPlanner();
+  }
+  // else: login screen stays visible
+}
+
+async function doLogin(){
+  setLoginHint("Fenster wird geöffnet…");
+  try {
+    const resp = await msalInstance.loginPopup({scopes: SCOPES});
+    currentAccount = resp.account;
+    showApp();
+    await syncFromPlanner();
+  } catch(e) {
+    setLoginHint("Anmeldung fehlgeschlagen: " + e.message);
+  }
+}
+
+function doLogout(){
+  if(!confirm("Abmelden?")) return;
+  msalInstance.logoutPopup({account: currentAccount});
+  currentAccount = null;
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("syncBtn").disabled = true;
+  document.getElementById("authBtn").style.display = "none";
+}
+
+function showApp(){
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("syncBtn").disabled = false;
+  document.getElementById("authBtn").style.display = "";
+  document.getElementById("syncBar").style.display = "flex";
+  const name = currentAccount.name || currentAccount.username;
+  document.getElementById("authName").textContent = name.split(" ")[0];
+  document.getElementById("authAvatar").textContent = name[0].toUpperCase();
+}
+
+function setLoginHint(msg){ document.getElementById("loginHint").textContent = msg; }
+
+async function getToken(){
+  const req = { scopes: SCOPES, account: currentAccount };
+  try {
+    const resp = await msalInstance.acquireTokenSilent(req);
+    return resp.accessToken;
+  } catch(e) {
+    const resp = await msalInstance.acquireTokenPopup(req);
+    return resp.accessToken;
+  }
+}
+
+async function graphGet(url){
+  const token = await getToken();
+  const resp = await fetch("https://graph.microsoft.com/v1.0" + url, {
+    headers: { Authorization: "Bearer " + token }
+  });
+  if(!resp.ok) throw new Error(await resp.text());
+  return resp.json();
+}
+
+async function graphPatch(url, body){
+  const token = await getToken();
+  const resp = await fetch("https://graph.microsoft.com/v1.0" + url, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if(!resp.ok) throw new Error(await resp.text());
+  return resp.status === 204 ? null : resp.json();
+}
+
+// ── PLANNER SYNC ──────────────────────────────────────────────────────────────
+// Bucket name → our internal key mapping
+const BUCKET_MAP = {
+  "Backlog / Ideen": "BACKLOG",
+  "Meilensteine":    "MEILENSTEINE",
+  "Geistliches":     "GEISTLICHES",
+  "Story":           "STORY",
+  "VLL":             "VLL",
+  "Deko":            "DEKO",
+  "PR":              "PR",
+  "Verwaltung":      "VERWALTUNG",
+};
+
+// Planner percentComplete → our status
+function pctToStatus(pct){
+  if(pct === 100) return "completed";
+  if(pct > 0)     return "in_progress";
+  return "not_started";
+}
+function statusToPct(s){
+  if(s === "completed")  return 100;
+  if(s === "in_progress") return 50;
+  return 0;
+}
+
+function setSyncState(state, msg){
+  const dot = document.getElementById("syncDot");
+  const msgEl = document.getElementById("syncMsg");
+  const btn = document.getElementById("syncBtn");
+  const icon = document.getElementById("syncIcon");
+  dot.className = "sync-dot " + (state === "ok" ? "ok" : state === "err" ? "err" : "loading");
+  msgEl.textContent = msg;
+  if(state === "loading"){
+    btn.disabled = true;
+    icon.className = "spinning";
+    icon.textContent = "↻";
+  } else {
+    btn.disabled = false;
+    icon.className = "";
+    icon.textContent = "↻";
+  }
+}
+
+async function findPlanId(){
+  if(PLAN_ID) return PLAN_ID;
+  // Find the plan named "AC26 Planboard" across all joined groups
+  const groups = await graphGet("/me/joinedGroups?$select=id,displayName");
+  for(const g of groups.value){
+    try {
+      const plans = await graphGet("/groups/" + g.id + "/planner/plans");
+      const plan = plans.value.find(p => p.title === "AC26 Planboard");
+      if(plan){ PLAN_ID = plan.id; return PLAN_ID; }
+    } catch(e){ /* group may not have planner */ }
+  }
+  throw new Error("Plan 'AC26 Planboard' nicht gefunden.");
+}
+
+// Store planner task IDs and eTags for write-back
+let plannerMeta = {}; // taskId → {id, etag, bucketId}
+let bucketIdMap = {}; // bucketName → bucketId
+
+async function syncFromPlanner(){
+  if(!currentAccount) return;
+  setSyncState("loading", "Synchronisiere mit Planner…");
+  try {
+    const planId = await findPlanId();
+
+    // Load buckets
+    const bucketsResp = await graphGet("/planner/plans/" + planId + "/buckets");
+    bucketIdMap = {};
+    bucketsResp.value.forEach(b => { bucketIdMap[b.name] = b.id; });
+
+    // Load tasks
+    const tasksResp = await graphGet("/planner/plans/" + planId + "/tasks");
+    const details = [];
+    // Fetch task details for notes (batch would be ideal but keep it simple)
+    // We only need start/due dates which are on the task itself
+
+    const newTasks = [];
+    plannerMeta = {};
+
+    tasksResp.value.forEach(pt => {
+      const bucketName = Object.keys(bucketIdMap).find(k => bucketIdMap[k] === pt.bucketId) || "";
+      const bucketKey = BUCKET_MAP[bucketName];
+      if(!bucketKey || bucketKey === "BACKLOG") return; // skip backlog
+
+      const start = pt.startDateTime ? pt.startDateTime.slice(0,10) : null;
+      const due   = pt.dueDateTime   ? pt.dueDateTime.slice(0,10)   : null;
+      if(!start && !due) return; // skip tasks without dates
+
+      const taskStart = start || due;
+      const taskEnd   = due   || start;
+
+      newTasks.push({
+        id: pt.id,
+        bucket: bucketKey,
+        name: pt.title,
+        start: taskStart,
+        end: taskEnd,
+        status: pctToStatus(pt.percentComplete),
+      });
+
+      plannerMeta[pt.id] = {
+        id: pt.id,
+        etag: pt["@odata.etag"] || "",
+        bucketId: pt.bucketId,
+      };
+    });
+
+    TASKS = newTasks;
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
+    setSyncState("ok", `Zuletzt synchronisiert: ${timeStr} · ${TASKS.length} Aufgaben`);
+    render();
+    setTimeout(scrollToToday, 80);
+  } catch(e) {
+    setSyncState("err", "Fehler: " + e.message);
+    console.error(e);
+  }
+}
+
+// Write status back to Planner when changed in the UI
+async function writeStatusToPlanner(taskId, newStatus){
+  if(!plannerMeta[taskId]) return; // not a planner task
+  setSyncState("loading", "Speichere in Planner…");
+  try {
+    await graphPatch("/planner/tasks/" + taskId, {
+      percentComplete: statusToPct(newStatus)
+    });
+    // Update stored etag
+    const fresh = await graphGet("/planner/tasks/" + taskId);
+    if(plannerMeta[taskId]) plannerMeta[taskId].etag = fresh["@odata.etag"] || "";
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
+    setSyncState("ok", `Gespeichert: ${timeStr}`);
+  } catch(e) {
+    setSyncState("err", "Fehler beim Speichern: " + e.message);
+    console.error(e);
+  }
+}
+
 // ── DATA ──────────────────────────────────────────────────────────────────────
 const MDE = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 const BW  = {week:72,month:88,quarter:130};
@@ -979,6 +1335,7 @@ function cycleStatus(id){
   t.status = order[(order.indexOf(t.status)+1)%3];
   render();
   if(selectedId === id) renderDetail(id);
+  writeStatusToPlanner(id, t.status);
 }
 
 function selTask(id){
@@ -1004,7 +1361,7 @@ function renderDetail(id){
       <div class="dp-row">
         <div class="dp-label">Status</div>
         <div class="dp-value">
-          <select onchange="setTaskStatus(${id},this.value)" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:5px;padding:3px 7px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer">
+          <select onchange="setTaskStatus('${id}',this.value)" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:5px;padding:3px 7px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer">
             ${Object.entries(ST).map(([k,v])=>`<option value="${k}"${t.status===k?" selected":""}>${v.label}</option>`).join("")}
           </select>
         </div>
@@ -1012,6 +1369,7 @@ function renderDetail(id){
       <div class="dp-row"><div class="dp-label">Start</div><div class="dp-value">${fde(t.start)}</div></div>
       <div class="dp-row"><div class="dp-label">Ende</div><div class="dp-value"${overdue?' style="color:var(--today)"':''}>${fde(t.end)}</div></div>
       <div class="dp-row"><div class="dp-label">Dauer</div><div class="dp-value">${isPoint?"Einzeltermin":days+" Tage"}</div></div>
+      ${plannerMeta[id]?`<div class="dp-row"><div class="dp-label">Planner</div><div class="dp-value" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">✓ verknüpft</div></div>`:""}
     </div>`;
   document.getElementById("detailPanel").classList.add("open");
 }
@@ -1021,6 +1379,7 @@ function setTaskStatus(id, val){
   t.status = val;
   render();
   renderDetail(id);
+  writeStatusToPlanner(id, val);
 }
 
 function closeDetail(){
@@ -1217,8 +1576,8 @@ document.getElementById("ganttScroll").addEventListener("wheel", e=>{
 window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change", ()=>render());
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-render();
-setTimeout(scrollToToday, 80);
+render(); // show demo data while auth loads
+initAuth(); // then replace with real Planner data
 </script>
 </body>
 </html>
