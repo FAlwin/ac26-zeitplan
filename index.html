@@ -80,6 +80,7 @@ body{
 .logo svg{width:14px;height:14px;fill:var(--accent-fg)}
 .title{font-size:16px;font-weight:800;letter-spacing:-.4px;color:var(--text)}
 .subtitle{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:1px}
+@media(max-width:640px){.subtitle{display:none}}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 
 /* ── TOOLBAR ── */
@@ -806,7 +807,7 @@ body{
   </div>
   <div>
     <div class="title" id="appTitle">Zeitplan · AC 2026</div>
-    <div class="subtitle">Zeltlager · Christliche Zeltlagerarbeit e.V.</div>
+    <div class="subtitle">Christliche Zeltlagerarbeit e.V.</div>
   </div>
   <div class="hdr-right">
     <button class="sync-btn" id="syncBtn" onclick="syncFromPlanner()" disabled>
@@ -1071,6 +1072,21 @@ async function graphGet(url){
   return resp.json();
 }
 
+// ── CHANGE DETECTION ─────────────────────────────────────────────────────────
+let previousSnapshot = null;
+
+function makeSnapshot(tasks, buckets){
+  return JSON.stringify({
+    tasks: tasks.map(t=>({id:t.id, name:t.name, start:t.start, end:t.end, status:t.status, bucket:t.bucket})),
+    buckets: buckets.map(b=>b.key)
+  });
+}
+
+function dataChanged(prev, tasks, buckets){
+  if(!prev) return true; // erster Sync – immer rendern
+  return prev !== makeSnapshot(tasks, buckets);
+}
+
 // ── PLANNER SYNC ──────────────────────────────────────────────────────────────
 // Planner percentComplete → our status
 function pctToStatus(pct){
@@ -1205,12 +1221,18 @@ async function syncFromPlanner(){
     });
 
     TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
+
     const now = new Date();
     const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
     setSyncState("ok", `Zuletzt synchronisiert: ${timeStr} · ${TASKS.length} Aufgaben`);
     showLoading(false);
-    render();
-    setTimeout(scrollToToday, 80);
+
+    // Nur neu rendern wenn sich etwas geändert hat
+    if(dataChanged(previousSnapshot, TASKS, BUCKETS)){
+      render();
+      setTimeout(scrollToToday, 80);
+    }
+    previousSnapshot = makeSnapshot(TASKS, BUCKETS);
   } catch(e) {
     setSyncState("err", "Fehler: " + e.message);
     showLoading(false);
@@ -1665,26 +1687,31 @@ function openMsPopup(e, id){
   document.getElementById("msPopupDur").textContent = isPoint ? "Einzeltermin" : days + " Tage";
 
   const popup = document.getElementById("msPopup");
-  popup.classList.add("open");
+  // Erst sichtbar machen um Größe zu messen
+  popup.style.display = "block";
+  popup.style.visibility = "hidden";
 
-  // Position near click but within viewport
   const vw = window.innerWidth, vh = window.innerHeight;
   let x = e.clientX + 12, y = e.clientY + 12;
-  popup.style.display = "block";
   const pw = popup.offsetWidth || 220, ph = popup.offsetHeight || 140;
   if(x + pw > vw - 10) x = e.clientX - pw - 12;
   if(y + ph > vh - 10) y = e.clientY - ph - 12;
   popup.style.left = Math.max(10, x) + "px";
   popup.style.top  = Math.max(10, y) + "px";
+  popup.style.visibility = "";
 }
 
 function closeMsPopup(){
-  document.getElementById("msPopup").classList.remove("open");
+  const popup = document.getElementById("msPopup");
+  popup.style.display = "none";
 }
 
 document.addEventListener("click", e => {
-  if(!e.target.closest("#msPopup") && !e.target.closest(".ms-diamond") && !e.target.closest(".ms-bar")){
-    closeMsPopup();
+  const popup = document.getElementById("msPopup");
+  if(popup && popup.style.display === "block"){
+    if(!e.target.closest("#msPopup") && !e.target.closest(".ms-diamond") && !e.target.closest(".ms-bar")){
+      closeMsPopup();
+    }
   }
 });
 
