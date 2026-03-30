@@ -1443,73 +1443,68 @@ function render(){
 
     if(isMS){
       const isC = collapsed[bucket.key];
-      const CHAR_W = 6.5;   // geschätzte Zeichenbreite in px (Syne bold 10px)
-      const LINE_Y = 20;    // Y-Position der horizontalen Linie (von oben)
+      const CHAR_W = 6.5;
+      const DIAMOND_Y_FROM_BOTTOM = 10; // Raute sitzt 10px vom unteren Rand
       const COLLAPSED_H = 28;
 
-      // Zeilenhöhe: Raute sitzt auf LINE_Y, Labels wachsen nach oben-rechts bei -45°
-      // Höhe = längster Label * sin(45°) + LINE_Y + etwas Luft
       let rowH = COLLAPSED_H;
       if(!isC && btasks.length){
         const maxLen = Math.max(...btasks.map(t => t.name.length * CHAR_W));
-        rowH = Math.max(Math.ceil(maxLen * 0.707) + LINE_Y + 8, 50);
+        // Bei -45°: Höhe = Textlänge * sin(45°) = Textlänge * 0.707
+        rowH = Math.max(Math.ceil(maxLen * 0.707) + DIAMOND_Y_FROM_BOTTOM + 4, 50);
       }
 
+      const lineY = rowH - DIAMOND_Y_FROM_BOTTOM - 6; // Linie = Mitte der Raute
+      const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+      const bgFill   = isDark ? '#141412' : '#fef0e3';
+      const lineClr  = isDark ? 'rgba(255,255,255,0.11)' : 'rgba(10,71,56,0.16)';
+      const todayClr = isDark ? '#f5a623' : '#b06000';
+      const mutedClr = isDark ? '#7a8f85' : '#5a8272';
+
       html += `<div class="gantt-row" style="height:${rowH}px;border-bottom:1px solid var(--border2)">`;
-      html += `<div class="rl" style="height:${rowH}px;cursor:pointer;padding:0 14px;gap:8px;background:var(--surface)" onclick="togGroup('${bucket.key}')">`;
+      html += `<div class="rl" style="height:${rowH}px;cursor:pointer;padding:0 14px;gap:8px;background:var(--surface);align-items:flex-end;padding-bottom:6px" onclick="togGroup('${bucket.key}')">`;
       html += `<div style="width:6px;height:6px;transform:rotate(45deg);border-radius:1px;background:${color};flex-shrink:0"></div>`;
       html += `<span class="ms-group-label" style="flex:1">${esc(bucket.name)}</span>`;
       html += `<span class="collapse-icon${isC?" collapsed":""}" style="color:${color}">▾</span>`;
       html += `</div>`;
 
-      // SVG-Canvas für die gesamte Timeline-Breite
-      html += `<svg width="${totalW}" height="${rowH}" style="display:block;flex-shrink:0;background:${color}0d;border-bottom:1px solid ${color}22;overflow:visible">`;
-
+      html += `<svg width="${totalW}" height="${rowH}" style="display:block;flex-shrink:0;background:${color}0d;border-bottom:1px solid ${color}22">`;
       // Horizontale Linie
-      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme:dark)').matches;
-      const lineColor = isDark ? 'rgba(255,255,255,0.11)' : 'rgba(10,71,56,0.16)';
-      const bgFill = isDark ? '#141412' : '#fef0e3';
-      const mutedColor = isDark ? '#7a8f85' : '#5a8272';
-
-      html += `<line x1="0" y1="${LINE_Y}" x2="${totalW}" y2="${LINE_Y}" stroke="${lineColor}" stroke-width="2"/>`;
-
+      html += `<line x1="0" y1="${lineY}" x2="${totalW}" y2="${lineY}" stroke="${lineClr}" stroke-width="2"/>`;
       // Heute-Linie
       if(tx>0){
-        html += `<line x1="${tx}" y1="0" x2="${tx}" y2="${rowH}" stroke="${isDark?'#f5a623':'#b06000'}" stroke-width="2" opacity="0.8"/>`;
-        html += `<text x="${tx}" y="${rowH-4}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="${isDark?'#f5a623':'#b06000'}" font-weight="600">Heute</text>`;
+        html += `<line x1="${tx}" y1="0" x2="${tx}" y2="${rowH}" stroke="${todayClr}" stroke-width="2" opacity="0.8"/>`;
+        html += `<text x="${tx+3}" y="12" font-family="IBM Plex Mono,monospace" font-size="8" fill="${todayClr}" font-weight="600">Heute</text>`;
       }
-
       // Meilensteine
       btasks.forEach(t => {
         const isPoint = t.start === t.end;
         const done = t.status === "completed";
         const op = done ? 0.35 : 1;
-        const labelColor = done ? mutedColor : color;
+        const lColor = done ? mutedClr : color;
 
         if(isPoint){
           const x = cx(t.start);
-          const dSize = 9; // halbe Diagonale der Raute
-          // Raute als Polygon
+          const d = 8; // halbe Diagonale
           html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
-          html += `<polygon points="${x},${LINE_Y-dSize} ${x+dSize},${LINE_Y} ${x},${LINE_Y+dSize} ${x-dSize},${LINE_Y}" fill="${color}" rx="2"/>`;
+          html += `<polygon points="${x},${lineY-d} ${x+d},${lineY} ${x},${lineY+d} ${x-d},${lineY}" fill="${color}"/>`;
           if(!isC){
-            // Label -45°, Ankerpunkt = Mitte-oben der Raute
-            html += `<text x="${x+dSize}" y="${LINE_Y}" transform="rotate(-45,${x+dSize},${LINE_Y})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${labelColor}">${esc(t.name)}</text>`;
+            // Text beginnt am rechten Punkt der Raute, wächst nach oben-rechts bei -45°
+            html += `<text x="${x+d}" y="${lineY}" transform="rotate(-45,${x+d},${lineY})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" dominant-baseline="auto">${esc(t.name)}</text>`;
           }
           html += `<title>${esc(t.name)}</title></g>`;
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
-          const barH = 10, barY = LINE_Y - barH/2;
+          const barH = 10;
           html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
-          html += `<rect x="${x}" y="${barY}" width="${w2}" height="${barH}" rx="5" fill="${color}"/>`;
+          html += `<rect x="${x}" y="${lineY-barH/2}" width="${w2}" height="${barH}" rx="5" fill="${color}"/>`;
           if(!isC){
-            const midX = x + w2/2;
-            html += `<text x="${midX}" y="${LINE_Y}" transform="rotate(-45,${midX},${LINE_Y})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${labelColor}">${esc(t.name)}</text>`;
+            const mx = x + w2/2;
+            html += `<text x="${mx}" y="${lineY-barH/2}" transform="rotate(-45,${mx},${lineY-barH/2})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" dominant-baseline="auto">${esc(t.name)}</text>`;
           }
           html += `<title>${esc(t.name)}</title></g>`;
         }
       });
-
       html += `</svg></div>`;
     } else {
       // Regular group header
