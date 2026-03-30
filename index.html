@@ -1601,8 +1601,14 @@ document.addEventListener("click", e => {
     document.getElementById("groupPicker").classList.remove("open");
     groupPickerOpen = false;
   }
+  // Separate handler for ms popup
+  const popup = document.getElementById("msPopup");
+  if(popup && popup.style.display === "block"){
+    if(!e.target.closest("#msPopup") && !e.target.closest(".ms-diamond") && !e.target.closest(".ms-bar")){
+      closeMsPopup();
+    }
+  }
 });
-
 function renderGroupPicker(){
   const wrap = document.getElementById("groupPickerItems");
   wrap.innerHTML = BUCKETS.map(b => {
@@ -1627,7 +1633,7 @@ function toggleBucketSel(key){
   }
   updateGroupFilterBtn();
   renderGroupPicker();
-  render();
+  render(); // Zeitleiste aktualisieren aber Picker offen lassen
 }
 
 function selectAllGroups(){
@@ -1701,15 +1707,6 @@ function closeMsPopup(){
   const popup = document.getElementById("msPopup");
   popup.style.display = "none";
 }
-
-document.addEventListener("click", e => {
-  const popup = document.getElementById("msPopup");
-  if(popup && popup.style.display === "block"){
-    if(!e.target.closest("#msPopup") && !e.target.closest(".ms-diamond") && !e.target.closest(".ms-bar")){
-      closeMsPopup();
-    }
-  }
-});
 
 function updateStats(){
   const all = TASKS;
