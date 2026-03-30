@@ -749,7 +749,23 @@ body{
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/3.7.1/js/msal-browser.min.js"></script>
+<script>
+// Lade MSAL dynamisch und starte die App erst wenn es bereit ist
+(function(){
+  const s = document.createElement("script");
+  s.src = "https://unpkg.com/@azure/msal-browser@3.7.1/lib/msal-browser.min.js";
+  s.onload = () => { window._msalReady = true; };
+  s.onerror = () => {
+    // Fallback auf Microsoft CDN
+    const s2 = document.createElement("script");
+    s2.src = "https://alcdn.msauth.net/browser/3.7.1/js/msal-browser.min.js";
+    s2.onload = () => { window._msalReady = true; };
+    s2.onerror = () => { document.getElementById("loginHint").textContent = "Fehler: MSAL konnte nicht geladen werden. Bitte Seite neu laden."; };
+    document.head.appendChild(s2);
+  };
+  document.head.appendChild(s);
+})();
+</script>
 
 <script>
 // ── MSAL CONFIG ───────────────────────────────────────────────────────────────
@@ -767,6 +783,13 @@ let currentAccount = null;
 let PLAN_ID = null;
 
 async function getMsal(){
+  // Warte bis MSAL-Bibliothek vollständig geladen ist
+  let tries = 0;
+  while(typeof msal === "undefined" && tries < 50){
+    await new Promise(r => setTimeout(r, 100));
+    tries++;
+  }
+  if(typeof msal === "undefined") throw new Error("MSAL-Bibliothek konnte nicht geladen werden. Bitte Seite neu laden.");
   if(!_msal){
     _msal = new msal.PublicClientApplication(MSAL_CONFIG);
     await _msal.initialize();
