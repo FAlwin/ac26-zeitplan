@@ -1443,71 +1443,74 @@ function render(){
 
     if(isMS){
       const isC = collapsed[bucket.key];
-
-      // Berechne Zeilenhöhe basierend auf längstem Label (bei -45° Grad)
-      // Bei -45° gilt: benötigte Höhe = Textlänge * cos(45°) ≈ Textlänge * 0.707
-      // Schätze Textbreite: ~6px pro Zeichen bei 10px font-size bold
+      const CHAR_W = 6.5;   // geschätzte Zeichenbreite in px (Syne bold 10px)
+      const LINE_Y = 20;    // Y-Position der horizontalen Linie (von oben)
       const COLLAPSED_H = 28;
-      const DIAMOND_AREA = 20; // Platz für Raute + Luft unten
+
+      // Zeilenhöhe: Raute sitzt auf LINE_Y, Labels wachsen nach oben-rechts bei -45°
+      // Höhe = längster Label * sin(45°) + LINE_Y + etwas Luft
       let rowH = COLLAPSED_H;
       if(!isC && btasks.length){
-        const maxChars = Math.max(...btasks.map(t => t.name.length));
-        const estimatedTextPx = maxChars * 6.2;
-        rowH = Math.max(Math.ceil(estimatedTextPx * 0.707) + DIAMOND_AREA, 60);
+        const maxLen = Math.max(...btasks.map(t => t.name.length * CHAR_W));
+        rowH = Math.max(Math.ceil(maxLen * 0.707) + LINE_Y + 8, 50);
       }
 
-      // Raute sitzt am unteren Rand der Zeile (minus kleiner Rand)
-      const diamondY = rowH - DIAMOND_AREA;
-
       html += `<div class="gantt-row" style="height:${rowH}px;border-bottom:1px solid var(--border2)">`;
-
-      // Label-Spalte
       html += `<div class="rl" style="height:${rowH}px;cursor:pointer;padding:0 14px;gap:8px;background:var(--surface)" onclick="togGroup('${bucket.key}')">`;
       html += `<div style="width:6px;height:6px;transform:rotate(45deg);border-radius:1px;background:${color};flex-shrink:0"></div>`;
       html += `<span class="ms-group-label" style="flex:1">${esc(bucket.name)}</span>`;
-      html += `<span class="collapse-icon${isC?" collapsed":""}" style="color:${color};font-size:9px;transition:transform .2s">▾</span>`;
+      html += `<span class="collapse-icon${isC?" collapsed":""}" style="color:${color}">▾</span>`;
       html += `</div>`;
 
-      // Timeline-Bereich – overflow:visible damit Labels nicht abgeschnitten werden
-      html += `<div style="flex:1;width:${totalW}px;height:${rowH}px;background:${color}0d;border-bottom:1px solid ${color}22;position:relative;overflow:visible">`;
+      // SVG-Canvas für die gesamte Timeline-Breite
+      html += `<svg width="${totalW}" height="${rowH}" style="display:block;flex-shrink:0;background:${color}0d;border-bottom:1px solid ${color}22;overflow:visible">`;
+
+      // Horizontale Linie
+      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme:dark)').matches;
+      const lineColor = isDark ? 'rgba(255,255,255,0.11)' : 'rgba(10,71,56,0.16)';
+      const bgFill = isDark ? '#141412' : '#fef0e3';
+      const mutedColor = isDark ? '#7a8f85' : '#5a8272';
+
+      html += `<line x1="0" y1="${LINE_Y}" x2="${totalW}" y2="${LINE_Y}" stroke="${lineColor}" stroke-width="2"/>`;
 
       // Heute-Linie
-      if(tx>0) html += `<div class="today-line" style="left:${tx}px;height:${rowH}px"><div class="today-label">Heute</div></div>`;
-
-      // Horizontale Zeitleiste-Linie
-      html += `<div style="position:absolute;left:0;right:0;top:${diamondY+6}px;height:2px;background:var(--border2);pointer-events:none;z-index:1"></div>`;
+      if(tx>0){
+        html += `<line x1="${tx}" y1="0" x2="${tx}" y2="${rowH}" stroke="${isDark?'#f5a623':'#b06000'}" stroke-width="2" opacity="0.8"/>`;
+        html += `<text x="${tx}" y="${rowH-4}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="${isDark?'#f5a623':'#b06000'}" font-weight="600">Heute</text>`;
+      }
 
       // Meilensteine
       btasks.forEach(t => {
         const isPoint = t.start === t.end;
         const done = t.status === "completed";
-        const opacity = done ? 0.35 : 1;
+        const op = done ? 0.35 : 1;
+        const labelColor = done ? mutedColor : color;
 
         if(isPoint){
           const x = cx(t.start);
-          // Wrapper zentriert auf x, Raute sitzt auf diamondY
-          html += `<div style="position:absolute;left:${x}px;top:0;transform:translateX(-50%);cursor:pointer;z-index:3;height:${rowH}px" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-          // Raute
-          html += `<div style="position:absolute;top:${diamondY}px;left:0;width:12px;height:12px;background:${color};transform:rotate(45deg) translateX(-50%);border-radius:2px;opacity:${opacity}"></div>`;
-          // Label: -45°, Ankerpunkt = untere-linke Ecke direkt an der Raute
+          const dSize = 9; // halbe Diagonale der Raute
+          // Raute als Polygon
+          html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
+          html += `<polygon points="${x},${LINE_Y-dSize} ${x+dSize},${LINE_Y} ${x},${LINE_Y+dSize} ${x-dSize},${LINE_Y}" fill="${color}" rx="2"/>`;
           if(!isC){
-            html += `<div style="position:absolute;top:${diamondY}px;left:6px;transform:rotate(-45deg);transform-origin:left bottom;white-space:nowrap;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;opacity:${opacity};color:${done?"var(--muted)":color};background:var(--bg);border:1px solid ${color}44;border-radius:4px;padding:2px 7px;pointer-events:none;z-index:4">${esc(t.name)}</div>`;
+            // Label -45°, Ankerpunkt = Mitte-oben der Raute
+            html += `<text x="${x+dSize}" y="${LINE_Y}" transform="rotate(-45,${x+dSize},${LINE_Y})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${labelColor}">${esc(t.name)}</text>`;
           }
-          html += `</div>`;
+          html += `<title>${esc(t.name)}</title></g>`;
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
-          html += `<div style="position:absolute;left:${x}px;top:${diamondY}px;cursor:pointer;z-index:3" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-          // Balken
-          html += `<div style="width:${w2}px;height:12px;background:${color};border-radius:6px;opacity:${opacity}"></div>`;
-          // Label: -45°, Ankerpunkt = untere-linke Ecke des Balkens
+          const barH = 10, barY = LINE_Y - barH/2;
+          html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
+          html += `<rect x="${x}" y="${barY}" width="${w2}" height="${barH}" rx="5" fill="${color}"/>`;
           if(!isC){
-            html += `<div style="position:absolute;top:0;left:${Math.floor(w2/2)}px;transform:rotate(-45deg);transform-origin:left bottom;white-space:nowrap;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;opacity:${opacity};color:${done?"var(--muted)":color};background:var(--bg);border:1px solid ${color}44;border-radius:4px;padding:2px 7px;pointer-events:none;z-index:4">${esc(t.name)}</div>`;
+            const midX = x + w2/2;
+            html += `<text x="${midX}" y="${LINE_Y}" transform="rotate(-45,${midX},${LINE_Y})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${labelColor}">${esc(t.name)}</text>`;
           }
-          html += `</div>`;
+          html += `<title>${esc(t.name)}</title></g>`;
         }
       });
 
-      html += `</div></div>`;
+      html += `</svg></div>`;
     } else {
       // Regular group header
       const cnt = btasks.length;
