@@ -1605,29 +1605,25 @@ document.addEventListener("click", e => {
 
 function renderGroupPicker(){
   const wrap = document.getElementById("groupPickerItems");
-  wrap.innerHTML = BUCKETS.filter(b=>!b.isMilestone).map(b => {
+  wrap.innerHTML = BUCKETS.map(b => {
     const checked = selectedBuckets.size === 0 || selectedBuckets.has(b.key);
     return `<div class="group-picker-item" onclick="toggleBucketSel('${b.key}')">
       <div class="group-picker-check${checked?" checked":""}">✓</div>
-      <div class="group-picker-dot" style="background:${b.color}"></div>
+      <div class="group-picker-dot" style="background:${b.color};${b.isMilestone?"transform:rotate(45deg);border-radius:1px;":""}""></div>
       <span style="font-size:12px">${esc(b.name)}</span>
     </div>`;
   }).join("");
 }
 
 function toggleBucketSel(key){
-  // If all selected, start fresh with just this one deselected
   if(selectedBuckets.size === 0){
-    BUCKETS.filter(b=>!b.isMilestone).forEach(b => { if(b.key !== key) selectedBuckets.add(b.key); });
+    BUCKETS.forEach(b => { if(b.key !== key) selectedBuckets.add(b.key); });
   } else if(selectedBuckets.has(key)){
     selectedBuckets.delete(key);
-    // If none left, show all
     if(selectedBuckets.size === 0) selectedBuckets = new Set();
   } else {
     selectedBuckets.add(key);
-    // If all selected, reset to empty (= all)
-    const total = BUCKETS.filter(b=>!b.isMilestone).length;
-    if(selectedBuckets.size === total) selectedBuckets = new Set();
+    if(selectedBuckets.size === BUCKETS.length) selectedBuckets = new Set();
   }
   updateGroupFilterBtn();
   renderGroupPicker();
