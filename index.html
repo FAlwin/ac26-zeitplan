@@ -943,18 +943,6 @@ async function graphGet(url){
 }
 
 // ── PLANNER SYNC ──────────────────────────────────────────────────────────────
-// Bucket name → our internal key mapping
-const BUCKET_MAP = {
-  "Backlog / Ideen": "BACKLOG",
-  "Meilensteine":    "MEILENSTEINE",
-  "Geistliches":     "GEISTLICHES",
-  "Story":           "STORY",
-  "VLL":             "VLL",
-  "Deko":            "DEKO",
-  "PR":              "PR",
-  "Verwaltung":      "VERWALTUNG",
-};
-
 // Planner percentComplete → our status
 function pctToStatus(pct){
   if(pct === 100) return "completed";
@@ -1007,9 +995,26 @@ async function findPlanId(){
   throw new Error("Plan 'AC26 Planboard' nicht gefunden. Bitte sicherstellen dass du Mitglied der Gruppe bist.");
 }
 
-// Store planner task IDs and eTags for write-back
-let plannerMeta = {}; // taskId → {id, etag, bucketId}
+// Store planner task IDs and eTags
+let plannerMeta = {};
 let bucketIdMap = {}; // bucketName → bucketId
+
+// Farben pro Bucket-Name (fix, da Planner keine Farben hat)
+const BUCKET_COLORS = {
+  "Meilensteine": {color:"#1a5fa8", isMilestone:true},
+  "Geistliches":  {color:"#1a7a55"},
+  "PR":           {color:"#b06000"},
+  "Story":        {color:"#7c3aed"},
+  "VLL":          {color:"#2563a8"},
+  "Deko":         {color:"#8b1a5a"},
+  "Verwaltung":   {color:"#c0392b"},
+};
+function colorForBucket(name){
+  return BUCKET_COLORS[name] || {color:"#4a8070"};
+}
+
+// Planner orderHint sortierung – lexikografisch absteigend
+function sortByOrderHint(arr){ return [...arr].sort((a,b) => a.orderHint < b.orderHint ? 1 : -1); }
 
 async function syncFromPlanner(){
   if(!currentAccount) return;
@@ -1018,46 +1023,56 @@ async function syncFromPlanner(){
   try {
     const planId = await findPlanId();
 
-    // Load buckets
+    // Buckets laden und nach orderHint sortieren
     const bucketsResp = await graphGet("/planner/plans/" + planId + "/buckets");
-    bucketIdMap = {};
-    bucketsResp.value.forEach(b => { bucketIdMap[b.name] = b.id; });
+    const sortedBuckets = sortByOrderHint(bucketsResp.value);
 
-    // Load tasks
+    // BUCKETS-Array dynamisch aus Planner aufbauen
+    bucketIdMap = {};
+    BUCKETS.length = 0;
+    sortedBuckets.forEach(b => {
+      bucketIdMap[b.name] = b.id;
+      if(b.name === "Backlog / Ideen") return; // Backlog ausblenden
+      const cfg = colorForBucket(b.name);
+      BUCKETS.push({
+        key: b.id, // Planner Bucket-ID als Key
+        name: b.name,
+        color: cfg.color,
+        isMilestone: cfg.isMilestone || false,
+        orderHint: b.orderHint,
+      });
+    });
+
+    // Aufgaben laden und nach orderHint sortieren
     const tasksResp = await graphGet("/planner/plans/" + planId + "/tasks");
-    const details = [];
-    // Fetch task details for notes (batch would be ideal but keep it simple)
-    // We only need start/due dates which are on the task itself
+    const sortedTasks = sortByOrderHint(tasksResp.value);
 
     const newTasks = [];
     plannerMeta = {};
 
-    tasksResp.value.forEach(pt => {
+    sortedTasks.forEach(pt => {
+      // Backlog überspringen
       const bucketName = Object.keys(bucketIdMap).find(k => bucketIdMap[k] === pt.bucketId) || "";
-      const bucketKey = BUCKET_MAP[bucketName];
-      if(!bucketKey || bucketKey === "BACKLOG") return; // skip backlog
+      if(bucketName === "Backlog / Ideen") return;
+      // Nur Aufgaben mit Bucket der in BUCKETS ist
+      const bucket = BUCKETS.find(b => b.key === pt.bucketId);
+      if(!bucket) return;
 
       const start = pt.startDateTime ? pt.startDateTime.slice(0,10) : null;
       const due   = pt.dueDateTime   ? pt.dueDateTime.slice(0,10)   : null;
-      if(!start && !due) return; // skip tasks without dates
-
-      const taskStart = start || due;
-      const taskEnd   = due   || start;
+      if(!start && !due) return; // ohne Datum nicht anzeigen
 
       newTasks.push({
         id: pt.id,
-        bucket: bucketKey,
+        bucket: pt.bucketId, // Planner Bucket-ID
         name: pt.title,
-        start: taskStart,
-        end: taskEnd,
+        start: start || due,
+        end: due || start,
         status: pctToStatus(pt.percentComplete),
+        orderHint: pt.orderHint,
       });
 
-      plannerMeta[pt.id] = {
-        id: pt.id,
-        etag: pt["@odata.etag"] || "",
-        bucketId: pt.bucketId,
-      };
+      plannerMeta[pt.id] = { id: pt.id, etag: pt["@odata.etag"] || "" };
     });
 
     TASKS = newTasks;
@@ -1086,16 +1101,8 @@ const ST = {
   completed:    {label:"Abgeschlossen",   cls:"status-completed"},
 };
 
-// Buckets (Gruppen)
-const BUCKETS = [
-  {key:"MEILENSTEINE", name:"Meilensteine", color:"#1a5fa8", isMilestone:true},
-  {key:"GEISTLICHES",  name:"Geistliches",  color:"#1a7a55"},
-  {key:"PR",           name:"PR",           color:"#b06000"},
-  {key:"STORY",        name:"Story",        color:"#7c3aed"},
-  {key:"VLL",          name:"VLL",          color:"#1a5fa8"},
-  {key:"DEKO",         name:"Deko",         color:"#8b1a5a"},
-  {key:"VERWALTUNG",   name:"Verwaltung",   color:"#c0392b"},
-];
+// Buckets – werden dynamisch aus Planner geladen
+let BUCKETS = [];
 
 // Sample tasks – ersetze diese später durch echte Planner-Daten
 let TASKS = [
