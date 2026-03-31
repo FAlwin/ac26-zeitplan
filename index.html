@@ -883,9 +883,9 @@ body{
 
 <!-- GROUP PICKER -->
 <div class="group-picker" id="groupPicker">
-  <div style="display:flex;gap:6px;margin-bottom:6px">
-    <div style="flex:1;background:var(--surface2);border-radius:4px;padding:4px 6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;text-align:center;border-radius:4px;transition:all .12s" onclick="selectAllGroups();event.stopPropagation()" onmouseover="this.style.background='var(--surface3)';this.style.color='var(--text)'" onmouseout="this.style.background='var(--surface2)';this.style.color='var(--muted)'">Alle auswählen</div>
-    <div style="flex:1;background:var(--surface2);border-radius:4px;padding:4px 6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;text-align:center;border-radius:4px;transition:all .12s" onclick="deselectAllGroups();event.stopPropagation()" onmouseover="this.style.background='var(--surface3)';this.style.color='var(--text)'" onmouseout="this.style.background='var(--surface2)';this.style.color='var(--muted)'">Alle abwählen</div>
+  <div style="display:flex;gap:6px;margin-bottom:8px">
+    <button class="vb" style="flex:1;padding:4px 8px;font-size:10px" onclick="selectAllGroups();event.stopPropagation()">Alle ✓</button>
+    <button class="vb" style="flex:1;padding:4px 8px;font-size:10px" onclick="deselectAllGroups();event.stopPropagation()">Alle ✕</button>
   </div>
   <div class="group-picker-divider"></div>
   <div id="groupPickerItems"></div>
@@ -1294,9 +1294,8 @@ const ST = {
 // Buckets – werden dynamisch aus Planner geladen
 let BUCKETS = [];
 
-// Sample tasks – ersetze diese später durch echte Planner-Daten
-let TASKS = [
-  // MEILENSTEINE
+/* Offline-Testdaten – bei Bedarf TASKS = [...] einkommentieren
+let TASKS_DEMO = [
   {id:1,  bucket:"MEILENSTEINE", name:"Aufgabenverteilung LT",    start:"2025-09-16", end:"2025-09-16", status:"completed"},
   {id:2,  bucket:"MEILENSTEINE", name:"Planungs-WE 1",            start:"2025-09-26", end:"2025-09-28", status:"completed"},
   {id:3,  bucket:"MEILENSTEINE", name:"Meeting Mietergemeinden",  start:"2025-09-30", end:"2025-09-30", status:"completed"},
@@ -1307,26 +1306,22 @@ let TASKS = [
   {id:8,  bucket:"MEILENSTEINE", name:"Aufbauwoche",              start:"2026-07-20", end:"2026-07-25", status:"not_started"},
   {id:9,  bucket:"MEILENSTEINE", name:"AC Kidswoche",             start:"2026-08-15", end:"2026-08-21", status:"not_started"},
   {id:10, bucket:"MEILENSTEINE", name:"AC Teenywoche",            start:"2026-08-22", end:"2026-08-29", status:"not_started"},
-  // GEISTLICHES
   {id:11, bucket:"GEISTLICHES",  name:"Stille-Zeit-Heft",        start:"2025-10-01", end:"2026-07-31", status:"in_progress"},
   {id:12, bucket:"GEISTLICHES",  name:"Prediger anfragen",       start:"2025-10-01", end:"2026-04-30", status:"in_progress"},
   {id:13, bucket:"GEISTLICHES",  name:"Geistliche Workshops",    start:"2026-04-01", end:"2026-08-29", status:"not_started"},
-  // PR
   {id:14, bucket:"PR",           name:"Social Media",            start:"2025-09-16", end:"2026-08-29", status:"in_progress"},
   {id:15, bucket:"PR",           name:"Website aktualisieren",   start:"2025-10-01", end:"2026-07-31", status:"in_progress"},
   {id:16, bucket:"PR",           name:"Mediateam",               start:"2026-03-01", end:"2026-08-29", status:"not_started"},
   {id:17, bucket:"PR",           name:"Merchandise",             start:"2026-03-01", end:"2026-08-21", status:"not_started"},
-  // STORY
   {id:18, bucket:"STORY",        name:"Setting festlegen",       start:"2025-10-01", end:"2026-03-19", status:"in_progress"},
   {id:19, bucket:"STORY",        name:"Story & Handlung",        start:"2025-10-01", end:"2026-08-29", status:"in_progress"},
-  // VLL
   {id:20, bucket:"VLL",          name:"Bauten planen",           start:"2026-04-01", end:"2026-08-29", status:"not_started"},
-  // DEKO
   {id:21, bucket:"DEKO",         name:"Kostüme & Deko",          start:"2026-04-01", end:"2026-08-29", status:"not_started"},
-  // VERWALTUNG
   {id:22, bucket:"VERWALTUNG",   name:"Mitarbeiter-Anmeldungen", start:"2025-09-16", end:"2026-07-10", status:"in_progress"},
   {id:23, bucket:"VERWALTUNG",   name:"Teilnehmer",              start:"2025-09-16", end:"2026-08-29", status:"in_progress"},
 ];
+*/
+let TASKS = [];
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let view = "month";
@@ -1335,7 +1330,7 @@ let cols = [];
 let collapsed = {};
 let selectedId = null;
 let statusFilter = "ALL";
-let selectedBuckets = new Set(); // empty = all visible
+let hiddenBuckets = new Set(); // keys of buckets currently hidden
 let showDone = true;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -1419,7 +1414,7 @@ function bw(s,e){return Math.max(xDate(ad(pd(e),1),cols)-cx(s),4);}
 function visibleTasks(){
   return TASKS.filter(t => {
     if(!showDone && t.status === "completed") return false;
-    if(selectedBuckets.size > 0 && !selectedBuckets.has(t.bucket)) return false;
+    if(hiddenBuckets.has(t.bucket)) return false;
     if(statusFilter !== "ALL" && t.status !== statusFilter) return false;
     return true;
   });
@@ -1452,8 +1447,8 @@ function render(){
 
   // ── Rows
   BUCKETS.forEach(bucket => {
+    if(hiddenBuckets.has(bucket.key)) return;
     const btasks = vtasks.filter(t => t.bucket === bucket.key);
-    if(!btasks.length && selectedBuckets.size > 0) return;
     const isMS = bucket.isMilestone;
     const isC = collapsed[bucket.key];
     const color = bucket.color;
@@ -1529,7 +1524,7 @@ function render(){
   });
 
   document.getElementById("ganttInner").innerHTML = html;
-  updateBucketFilter();
+  updateGroupFilterBtn();
   updateStats();
 }
 
@@ -1573,12 +1568,6 @@ function buildHeader(totalW){
   return h;
 }
 
-function statusColor(status, fallback){
-  if(status === "completed") return "var(--accent)";
-  if(status === "in_progress") return "var(--today)";
-  return fallback;
-}
-
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
 function setView(v){
   view = v;
@@ -1603,15 +1592,6 @@ function scrollToToday(){
 }
 
 function togGroup(key){ collapsed[key] = !collapsed[key]; render(); }
-
-function toggleDone(){
-  showDone = !showDone;
-  const btn = document.getElementById("doneToggle");
-  const icon = document.getElementById("doneIcon");
-  if(btn) btn.classList.toggle("active", !showDone);
-  if(icon) icon.textContent = showDone ? "◉" : "○";
-  render();
-}
 
 function setStatusFilter(v){ statusFilter = v; render(); }
 
@@ -1651,65 +1631,54 @@ document.addEventListener("click", e => {
 function renderGroupPicker(){
   const wrap = document.getElementById("groupPickerItems");
   wrap.innerHTML = BUCKETS.map(b => {
-    const checked = selectedBuckets.size === 0 || !selectedBuckets.has(b.key);
+    const checked = !hiddenBuckets.has(b.key);
     return `<div class="group-picker-item" onclick="event.stopPropagation(); toggleBucketSel('${b.key}')">
       <div class="group-picker-check${checked?" checked":""}">✓</div>
-      <div class="group-picker-dot" style="background:${b.color};${b.isMilestone?"transform:rotate(45deg);border-radius:1px;":""}""></div>
+      <div class="group-picker-dot" style="background:${b.color};${b.isMilestone?"transform:rotate(45deg);border-radius:1px;":""}"></div>
       <span style="font-size:12px">${esc(b.name)}</span>
     </div>`;
   }).join("");
 }
 
 function toggleBucketSel(key){
-  if(selectedBuckets.size === 0){
-    // Wenn alle sichtbar sind, alle außer dem geklickten ausblenden
-    BUCKETS.forEach(b => { if(b.key !== key) selectedBuckets.add(b.key); });
-  } else if(selectedBuckets.has(key)){
-    // Wenn diese Gruppe verborgen ist, sichtbar machen
-    selectedBuckets.delete(key);
-  } else {
-    // Wenn diese Gruppe sichtbar ist, verborgen machen
-    selectedBuckets.add(key);
-  }
+  if(hiddenBuckets.has(key)) hiddenBuckets.delete(key);
+  else hiddenBuckets.add(key);
   updateGroupFilterBtn();
   renderGroupPicker();
   render();
 }
 
 function selectAllGroups(){
-  selectedBuckets = new Set();
+  hiddenBuckets = new Set();
   updateGroupFilterBtn();
   renderGroupPicker();
   render();
-  // Picker bleibt offen, damit man die Checkboxen sieht
 }
 
 function deselectAllGroups(){
-  selectedBuckets = new Set(BUCKETS.map(b => b.key));
+  hiddenBuckets = new Set(BUCKETS.map(b => b.key));
   updateGroupFilterBtn();
   renderGroupPicker();
   render();
-  // Picker bleibt offen, damit man die Checkboxen sieht
 }
 
 function updateGroupFilterBtn(){
   const btn = document.getElementById("groupFilterBtn");
   const lbl = document.getElementById("groupFilterLabel");
   if(!btn || !lbl) return;
-  if(selectedBuckets.size === 0){
+  const visibleCount = BUCKETS.length - hiddenBuckets.size;
+  if(hiddenBuckets.size === 0){
     lbl.textContent = "Alle Gruppen";
     btn.classList.remove("filtered");
-  } else if(selectedBuckets.size === 1){
-    const b = BUCKETS.find(b=>b.key===[...selectedBuckets][0]);
+  } else if(visibleCount === 1){
+    const b = BUCKETS.find(b => !hiddenBuckets.has(b.key));
     lbl.textContent = b ? b.name : "1 Gruppe";
     btn.classList.add("filtered");
   } else {
-    lbl.textContent = selectedBuckets.size + " Gruppen";
+    lbl.textContent = visibleCount + " / " + BUCKETS.length + " Gruppen";
     btn.classList.add("filtered");
   }
 }
-
-function updateBucketFilter(){ updateGroupFilterBtn(); }
 
 // ── DONE TOGGLE ───────────────────────────────────────────────────────────────
 function toggleDone(){
@@ -1818,8 +1787,6 @@ function startAutoSync(){
   });
 }
 
-function cycleStatus(id){ /* read-only – Status nur in Planner ändern */ }
-
 function selTask(id){
   selectedId = String(selectedId)===String(id) ? null : id;
   render();
@@ -1855,8 +1822,8 @@ function renderDetail(id){
       <div class="dp-row"><div class="dp-label">Ende</div><div class="dp-value"${overdue?' style="color:var(--today)"':''}>${fde(t.end)}</div></div>
       <div class="dp-row"><div class="dp-label">Dauer</div><div class="dp-value">${isPoint?"Einzeltermin":days+" Tage"}</div></div>
       <div class="dp-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-        <div class="dp-label" style="color:var(--dim)">Hinweis</div>
-        <div class="dp-value" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim)">Status in Planner ändern</div>
+        <div class="dp-label">Hinweis</div>
+        <div class="dp-value" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">ℹ Status in Planner ändern</div>
       </div>
     </div>`;
   document.getElementById("detailPanel").classList.add("open");
@@ -2086,7 +2053,6 @@ document.getElementById("ganttScroll").addEventListener("wheel", e=>{
 window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change", ()=>render());
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-// Kein Demo-Render – leerer Zustand bis Planner geladen hat
 TASKS = [];
 render();
 initAuth();
