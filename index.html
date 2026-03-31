@@ -1620,7 +1620,7 @@ function renderGroupPicker(){
   const wrap = document.getElementById("groupPickerItems");
   wrap.innerHTML = BUCKETS.map(b => {
     const checked = selectedBuckets.size === 0 || selectedBuckets.has(b.key);
-    return `<div class="group-picker-item" onclick="toggleBucketSel('${b.key}')">
+    return `<div class="group-picker-item" onclick="event.stopPropagation(); toggleBucketSel('${b.key}')">
       <div class="group-picker-check${checked?" checked":""}">✓</div>
       <div class="group-picker-dot" style="background:${b.color};${b.isMilestone?"transform:rotate(45deg);border-radius:1px;":""}""></div>
       <span style="font-size:12px">${esc(b.name)}</span>
