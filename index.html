@@ -756,11 +756,11 @@ body{
   pointer-events:auto;
 }
 .ms-popup.open{display:block}
-.ms-popup-title{font-size:13px;font-weight:700;margin-bottom:8px;line-height:1.3}
+.ms-popup-title{font-size:14px;font-weight:700;margin-bottom:10px;line-height:1.3;color:var(--text)}
 .ms-popup-row{
-  display:flex;gap:8px;font-size:11px;margin-bottom:5px;
+  display:flex;gap:8px;font-size:12px;margin-bottom:6px;color:var(--text)
 }
-.ms-popup-label{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:10px;width:50px;flex-shrink:0}
+.ms-popup-label{color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;width:50px;flex-shrink:0;font-weight:600}
 .ms-popup-close{
   position:absolute;top:8px;right:8px;
   background:none;border:none;color:var(--muted);
@@ -1661,17 +1661,18 @@ function renderGroupPicker(){
 
 function toggleBucketSel(key){
   if(selectedBuckets.size === 0){
+    // Wenn alle sichtbar sind, alle außer dem geklickten ausblenden
     BUCKETS.forEach(b => { if(b.key !== key) selectedBuckets.add(b.key); });
   } else if(selectedBuckets.has(key)){
+    // Wenn diese Gruppe verborgen ist, sichtbar machen
     selectedBuckets.delete(key);
-    if(selectedBuckets.size === 0) selectedBuckets = new Set();
   } else {
+    // Wenn diese Gruppe sichtbar ist, verborgen machen
     selectedBuckets.add(key);
-    if(selectedBuckets.size === BUCKETS.length) selectedBuckets = new Set();
   }
   updateGroupFilterBtn();
   renderGroupPicker();
-  render(); // Zeitleiste aktualisieren aber Picker offen lassen
+  render();
 }
 
 function selectAllGroups(){
