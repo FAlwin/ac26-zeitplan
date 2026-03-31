@@ -151,9 +151,19 @@ body{
 }
 .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .legend-diamond{
-  width:9px;height:9px;
-  transform:rotate(45deg);border-radius:1px;
+  width:3px;height:14px;
+  border-radius:2px;
   background:var(--muted);opacity:.6;flex-shrink:0;
+  position:relative;
+}
+.legend-diamond::before{
+  content:"";
+  position:absolute;
+  width:7px;height:7px;
+  border-radius:50%;
+  background:var(--muted);
+  left:50%;top:0;
+  transform:translateX(-50%);
 }
 .legend-bar{
   width:20px;height:7px;
@@ -353,28 +363,47 @@ body{
   color:rgba(255,255,255,.95);
 }
 
-/* Diamond (Raute) */
+/* Pin (Einzeltermin in Task-Zeile) */
 .diamond{
   position:absolute;
-  width:14px;height:14px;
-  transform:rotate(45deg);border-radius:2px;
+  width:3px;
+  top:0;bottom:0;
+  border-radius:2px;
   cursor:pointer;
-  transition:filter .12s,transform .15s;
-  box-shadow:0 1px 3px rgba(0,0,0,.15);
+  transition:filter .12s,opacity .12s;
 }
-.diamond:hover{filter:brightness(1.15);transform:rotate(45deg) scale(1.2)}
+.diamond::before{
+  content:"";
+  position:absolute;
+  width:8px;height:8px;
+  border-radius:50%;
+  background:inherit;
+  left:50%;top:4px;
+  transform:translateX(-50%);
+}
+.diamond:hover{filter:brightness(1.15)}
 .diamond.done{opacity:.35}
 
-/* Milestone diamond (bigger) */
+/* Pin (Einzeltermin in Meilenstein-Zeile) */
 .ms-diamond{
   position:absolute;
-  width:18px;height:18px;
-  transform:rotate(45deg);border-radius:3px;
+  width:3px;
+  top:0;bottom:0;
+  border-radius:2px;
   cursor:pointer;
-  transition:filter .12s,transform .15s;
-  box-shadow:0 2px 6px rgba(0,0,0,.2);
+  transition:filter .12s,opacity .12s;
 }
-.ms-diamond:hover{filter:brightness(1.1);transform:rotate(45deg) scale(1.15)}
+.ms-diamond::before{
+  content:"";
+  position:absolute;
+  width:10px;height:10px;
+  border-radius:50%;
+  background:inherit;
+  left:50%;top:4px;
+  transform:translateX(-50%);
+}
+.ms-diamond:hover{filter:brightness(1.1)}
+.ms-diamond.done{opacity:.35}
 
 /* Today line */
 .today-line{
@@ -1467,7 +1496,7 @@ function render(){
         const done = t.status === "completed";
         if(isPoint){
           const x = cx(t.start);
-          html += `<div class="ms-diamond" style="left:${x-9}px;top:13px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
+          html += `<div class="ms-diamond${done?" done":""}" style="left:${x-1}px;background:${color}" onclick="openMsPopup(event,'${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
           html += `<div class="ms-bar" style="left:${x}px;width:${w2}px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}">`;
@@ -1510,7 +1539,7 @@ function render(){
           if(tx>0) html += `<div class="today-line" style="left:${tx}px"></div>`;
           if(isPoint){
             const x = cx(t.start);
-            html += `<div class="diamond${done?" done":""}" style="left:${x-7}px;top:12px;background:${color}" onclick="event.stopPropagation();selTask('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
+            html += `<div class="diamond${done?" done":""}" style="left:${x-1}px;background:${color}" onclick="event.stopPropagation();selTask('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
           } else {
             const x = cx(t.start), w2 = bw(t.start, t.end);
             html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="event.stopPropagation();selTask('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
@@ -1990,10 +2019,12 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
         const done=t.status==="completed";
         const op=done?.35:1;
         if(isP){
-          // Diamond mit Label darunter
-          h+=`<div style="position:absolute;left:${x-6}px;top:2px;display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none">`;
-          h+=`<div style="width:13px;height:13px;transform:rotate(45deg);border-radius:2px;background:${color};opacity:${op}"></div>`;
-          h+=`<div style="font-size:7px;font-weight:700;color:${color};opacity:${op};white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;text-align:center;transform:translateX(0);line-height:1.2">${esc(t.name)}</div>`;
+          // Pin mit Label darunter
+          h+=`<div style="position:absolute;left:${x-1}px;top:0;bottom:0;display:flex;flex-direction:column;align-items:center;pointer-events:none">`;
+          h+=`<div style="width:3px;height:100%;background:${color};opacity:${op};border-radius:2px;position:relative">`;
+          h+=`<div style="position:absolute;width:9px;height:9px;border-radius:50%;background:${color};opacity:${op};left:50%;top:3px;transform:translateX(-50%)"></div>`;
+          h+=`</div>`;
+          h+=`<div style="font-size:7px;font-weight:700;color:${color};opacity:${op};white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.2;margin-top:2px">${esc(t.name)}</div>`;
           h+=`</div>`;
         } else {
           const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
@@ -2017,7 +2048,8 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
         h+=`</div>`;
         h+=`<div style="flex:1;position:relative;height:${RH}px">`;
         if(isP){
-          h+=`<div style="position:absolute;width:9px;height:9px;transform:rotate(45deg);border-radius:1px;background:${color};opacity:${op};left:${x-4}px;top:${(RH-9)/2}px"></div>`;
+          h+=`<div style="position:absolute;left:${x-1}px;top:0;bottom:0;background:${color};opacity:${op};width:3px;border-radius:2px"></div>`;
+          h+=`<div style="position:absolute;width:7px;height:7px;border-radius:50%;background:${color};opacity:${op};left:${x-3}px;top:3px"></div>`;
         } else {
           const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
           h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${(RH-14)/2}px;background:${color};opacity:${op};border-radius:3px"></div>`;
@@ -2031,7 +2063,7 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
   h+=`<span style="display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:#aaa;outline:1px solid #888;display:inline-block"></span>Nicht begonnen</span>`;
   h+=`<span style="display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:#b06000;display:inline-block"></span>In Bearbeitung</span>`;
   h+=`<span style="display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:#0a4738;display:inline-block"></span>Abgeschlossen</span>`;
-  h+=`<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;transform:rotate(45deg);background:#888;opacity:.7;display:inline-block;border-radius:1px"></span>Einzeltermin</span>`;
+  h+=`<span style="display:flex;align-items:center;gap:3px"><span style="display:inline-flex;flex-direction:column;align-items:center;width:3px;height:12px;background:#888;opacity:.7;border-radius:2px;position:relative"><span style="position:absolute;width:7px;height:7px;border-radius:50%;background:#888;top:0;left:50%;transform:translateX(-50%)"></span></span>Einzeltermin</span>`;
   h+=`<span style="display:flex;align-items:center;gap:3px"><span style="width:18px;height:6px;background:#888;opacity:.7;display:inline-block;border-radius:2px"></span>Zeitraum</span>`;
   h+=`</div></div>`;
   return h;
