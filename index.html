@@ -27,7 +27,7 @@
 
   --label-w:220px;
   --row-h:38px;
-  --ms-row-h:44px;
+  --ms-row-h:72px;
   --hdr-h:36px;
   --hdr2-h:22px;
   --group-h:26px;
@@ -612,7 +612,47 @@ body{
 .login-btn:hover{opacity:.85}
 .login-hint{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:12px}
 
-/* ── STAT BADGES ── */
+/* ── MILESTONE LABELS ── */
+.ms-label{
+  position:absolute;
+  font-family:'Syne',sans-serif;
+  font-size:10px;font-weight:700;
+  color:var(--text);
+  white-space:nowrap;
+  pointer-events:none;
+  transform:translateX(-50%);
+  top:4px;
+  max-width:90px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-align:center;
+  line-height:1.2;
+}
+.ms-label-bar{
+  position:absolute;
+  font-family:'Syne',sans-serif;
+  font-size:10px;font-weight:700;
+  color:rgba(255,255,255,.95);
+  white-space:nowrap;
+  pointer-events:none;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  padding:0 7px;
+  line-height:1;
+}
+
+/* Bottom date label for milestone diamonds */
+.ms-date{
+  position:absolute;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:8px;
+  color:var(--muted);
+  white-space:nowrap;
+  pointer-events:none;
+  transform:translateX(-50%);
+  bottom:3px;
+  text-align:center;
+}
 .stat-badge{
   font-family:'IBM Plex Mono',monospace;
   font-size:9px;font-weight:700;
@@ -1161,10 +1201,12 @@ function colorForBucket(name){
 // Planner orderHint sortierung – lexikografisch absteigend
 function sortByOrderHint(arr){ return [...arr].sort((a,b) => a.orderHint < b.orderHint ? 1 : -1); }
 
+let isFirstSync = true;
+
 async function syncFromPlanner(){
   if(!currentAccount) return;
   setSyncState("loading", "Synchronisiere mit Planner…");
-  showLoading(true);
+  if(isFirstSync) showLoading(true);
   try {
     const planId = await findPlanId();
 
@@ -1225,9 +1267,8 @@ async function syncFromPlanner(){
     const now = new Date();
     const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
     setSyncState("ok", `Zuletzt synchronisiert: ${timeStr} · ${TASKS.length} Aufgaben`);
-    showLoading(false);
+    if(isFirstSync){ showLoading(false); isFirstSync = false; }
 
-    // Nur neu rendern wenn sich etwas geändert hat
     if(dataChanged(previousSnapshot, TASKS, BUCKETS)){
       render();
       setTimeout(scrollToToday, 80);
@@ -1235,7 +1276,7 @@ async function syncFromPlanner(){
     previousSnapshot = makeSnapshot(TASKS, BUCKETS);
   } catch(e) {
     setSyncState("err", "Fehler: " + e.message);
-    showLoading(false);
+    if(isFirstSync){ showLoading(false); isFirstSync = false; }
     console.error(e);
   }
 }
@@ -1433,11 +1474,20 @@ function render(){
         const done = t.status === "completed";
         if(isPoint){
           const x = cx(t.start);
-          html += `<div class="ms-diamond" style="left:${x-9}px;top:13px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}"></div>`;
+          const diamondTop = 28; // vertically centered in lower half
+          html += `<div style="position:absolute;left:${x-9}px;top:0;display:flex;flex-direction:column;align-items:center;cursor:pointer" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
+          html += `<div class="ms-label" style="left:9px;top:4px;color:${done?"var(--muted)":color};opacity:${done?.45:1};max-width:80px">${esc(t.name)}</div>`;
+          html += `<div class="ms-diamond" style="position:relative;top:${diamondTop}px;background:${color};${done?"opacity:.35":""}"></div>`;
+          html += `<div class="ms-date" style="left:9px;top:${diamondTop+22}px;opacity:${done?.4:.7}">${fde(t.start)}</div>`;
+          html += `</div>`;
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
-          html += `<div class="ms-bar" style="left:${x}px;width:${w2}px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-          if(w2 > 50) html += `<span class="ms-bar-label">${esc(t.name)}</span>`;
+          const barTop = 36;
+          html += `<div style="position:absolute;left:${x}px;top:0;width:${w2}px;cursor:pointer" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
+          // Label above bar
+          html += `<div style="position:absolute;top:4px;left:0;right:0;text-align:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:${done?"var(--muted)":color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;opacity:${done?.45:1}">${esc(t.name)}</div>`;
+          html += `<div class="ms-bar" style="position:absolute;top:${barTop}px;left:0;width:${w2}px;background:${color};${done?"opacity:.35":""}">`;
+          html += `</div>`;
           html += `</div>`;
         }
       });
@@ -1633,7 +1683,8 @@ function toggleBucketSel(key){
   }
   updateGroupFilterBtn();
   renderGroupPicker();
-  render(); // Zeitleiste aktualisieren aber Picker offen lassen
+  // Verzögert rendern damit der Click-Event nicht den Picker schließt
+  setTimeout(() => render(), 10);
 }
 
 function selectAllGroups(){
