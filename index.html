@@ -328,7 +328,7 @@ body{
   top:10px;
   display:flex;align-items:center;overflow:hidden;
   transition:filter .12s,opacity .12s;
-  cursor:pointer;
+  cursor:pointer;z-index:1;
 }
 .bar:hover{filter:brightness(1.12)}
 .bar.done{opacity:.35}
@@ -347,6 +347,7 @@ body{
   display:flex;align-items:center;overflow:hidden;
   transition:filter .12s;cursor:pointer;
   box-shadow:0 1px 4px rgba(0,0,0,.15);
+  z-index:1;
 }
 .ms-bar:hover{filter:brightness(1.1)}
 .ms-bar-label{
@@ -365,7 +366,7 @@ body{
   border:2px solid var(--bg);
   cursor:pointer;
   transition:filter .12s,opacity .12s;
-  z-index:1;
+  z-index:2;
 }
 .diamond:hover{filter:brightness(1.15)}
 .diamond.done{opacity:.35}
@@ -379,7 +380,7 @@ body{
   border:2px solid var(--bg);
   cursor:pointer;
   transition:filter .12s,opacity .12s;
-  z-index:1;
+  z-index:2;
 }
 .ms-diamond:hover{filter:brightness(1.1)}
 .ms-diamond.done{opacity:.35}
@@ -1885,8 +1886,11 @@ async function doExportPDF(){
     const DPI=200, mmToPx=DPI/25.4;
 
     // Berechne wie viele Zeilen wir haben
-    const rowCount = TASKS.length + BUCKETS.length + 2; // tasks + group headers + title + legend
-    const RH=22, rowsH = rowCount * RH + 60; // geschätzte Höhe in px
+    const msBuckets = BUCKETS.filter(b=>b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
+    const regBuckets = BUCKETS.filter(b=>!b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
+    const regTasks = TASKS.filter(t=>!BUCKETS.find(b=>b.key===t.bucket&&b.isMilestone)).length;
+    const RHpdf=22, MSHpdf=58, GHpdf=20, HDRpdf=28;
+    const rowsH = HDRpdf + msBuckets*MSHpdf + regBuckets*GHpdf + regTasks*RHpdf + 40;
 
     // A4 landscape: 297×210mm, A3 landscape: 420×297mm
     const a4 = {pw:297, ph:210};
@@ -2032,8 +2036,12 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
           h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};outline:2px solid ${bg};z-index:1;pointer-events:none"></div>`;
         } else {
           const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
-          h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:18px;top:${(rowH-18)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center">`;
-          if(w2>30) h+=`<span style="font-size:9px;font-weight:700;padding:0 6px;color:rgba(255,255,255,.93);white-space:nowrap;overflow:hidden">${esc(t.name)}</span>`;
+          h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:18px;top:${(rowH-18)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:visible">`;
+          if(w2>40){
+            h+=`<span style="font-size:9px;font-weight:700;padding:0 6px;color:rgba(255,255,255,.93);white-space:nowrap;overflow:hidden">${esc(t.name)}</span>`;
+          } else {
+            h+=`<span style="position:absolute;left:${w2+4}px;font-size:8px;font-weight:700;color:${color};opacity:${op};white-space:nowrap">${esc(t.name)}</span>`;
+          }
           h+=`</div>`;
         }
       });
