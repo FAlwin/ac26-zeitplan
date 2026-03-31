@@ -768,6 +768,26 @@ body{
 }
 .ms-popup-close:hover{color:var(--text)}
 
+/* ── HOVER TOOLTIP ── */
+.ms-tooltip{
+  position:fixed;z-index:35;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:8px;
+  padding:10px 12px;
+  min-width:180px;max-width:240px;
+  box-shadow:0 4px 12px rgba(0,0,0,.12);
+  display:none;
+  pointer-events:none;
+  font-size:11px;
+}
+.ms-tooltip.show{display:block}
+.ms-tooltip-title{font-size:12px;font-weight:600;margin-bottom:6px;line-height:1.3;color:var(--text)}
+.ms-tooltip-row{
+  display:flex;gap:6px;font-size:10px;margin-bottom:4px;
+}
+.ms-tooltip-label{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:9px;width:45px;flex-shrink:0;text-transform:uppercase;letter-spacing:.3px}
+
 /* Bottom padding for mobile */
 .main{padding-bottom:env(safe-area-inset-bottom)}
 @media(max-width:640px){
@@ -862,7 +882,10 @@ body{
 
 <!-- GROUP PICKER -->
 <div class="group-picker" id="groupPicker">
-  <div class="group-picker-all" onclick="selectAllGroups()">Alle auswählen</div>
+  <div style="display:flex;gap:6px;margin-bottom:6px">
+    <div style="flex:1;background:var(--surface2);border-radius:4px;padding:4px 6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;text-align:center;border-radius:4px;transition:all .12s" onclick="selectAllGroups();event.stopPropagation()" onmouseover="this.style.background='var(--surface3)';this.style.color='var(--text)'" onmouseout="this.style.background='var(--surface2)';this.style.color='var(--muted)'">Alle auswählen</div>
+    <div style="flex:1;background:var(--surface2);border-radius:4px;padding:4px 6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;text-align:center;border-radius:4px;transition:all .12s" onclick="deselectAllGroups();event.stopPropagation()" onmouseover="this.style.background='var(--surface3)';this.style.color='var(--text)'" onmouseout="this.style.background='var(--surface2)';this.style.color='var(--muted)'">Alle abwählen</div>
+  </div>
   <div class="group-picker-divider"></div>
   <div id="groupPickerItems"></div>
 </div>
@@ -916,6 +939,14 @@ body{
   <div class="ms-popup-row"><div class="ms-popup-label">Start</div><div id="msPopupStart"></div></div>
   <div class="ms-popup-row"><div class="ms-popup-label">Ende</div><div id="msPopupEnd"></div></div>
   <div class="ms-popup-row"><div class="ms-popup-label">Dauer</div><div id="msPopupDur"></div></div>
+</div>
+
+<!-- HOVER TOOLTIP -->
+<div class="ms-tooltip" id="msTooltip">
+  <div class="ms-tooltip-title" id="msTooltipTitle"></div>
+  <div class="ms-tooltip-row"><div class="ms-tooltip-label">Status</div><div id="msTooltipStatus"></div></div>
+  <div class="ms-tooltip-row"><div class="ms-tooltip-label">Start</div><div id="msTooltipStart"></div></div>
+  <div class="ms-tooltip-row"><div class="ms-tooltip-label">Ende</div><div id="msTooltipEnd"></div></div>
 </div>
 
 <!-- PDF MODAL -->
@@ -1440,10 +1471,10 @@ function render(){
         const done = t.status === "completed";
         if(isPoint){
           const x = cx(t.start);
-          html += `<div class="ms-diamond" style="left:${x-9}px;top:13px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}"></div>`;
+          html += `<div class="ms-diamond" style="left:${x-9}px;top:13px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
-          html += `<div class="ms-bar" style="left:${x}px;width:${w2}px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
+          html += `<div class="ms-bar" style="left:${x}px;width:${w2}px;background:${color};${done?"opacity:.35":""}" onclick="openMsPopup(event,'${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}">`;
           if(w2 > 50) html += `<span class="ms-bar-label">${esc(t.name)}</span>`;
           html += `</div>`;
         }
@@ -1483,10 +1514,10 @@ function render(){
           if(tx>0) html += `<div class="today-line" style="left:${tx}px"></div>`;
           if(isPoint){
             const x = cx(t.start);
-            html += `<div class="diamond${done?" done":""}" style="left:${x-7}px;top:12px;background:${color}" onclick="event.stopPropagation();selTask('${t.id}')" title="${esc(t.name)}"></div>`;
+            html += `<div class="diamond${done?" done":""}" style="left:${x-7}px;top:12px;background:${color}" onclick="event.stopPropagation();selTask('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
           } else {
             const x = cx(t.start), w2 = bw(t.start, t.end);
-            html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="event.stopPropagation();selTask('${t.id}')">`;
+            html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="event.stopPropagation();selTask('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
             if(w2 > 55) html += `<span class="bar-label">${esc(t.name)}</span>`;
             html += `</div>`;
           }
@@ -1652,6 +1683,15 @@ function selectAllGroups(){
   document.getElementById("groupPicker").classList.remove("open");
 }
 
+function deselectAllGroups(){
+  selectedBuckets = new Set(BUCKETS.map(b => b.key));
+  updateGroupFilterBtn();
+  renderGroupPicker();
+  render();
+  groupPickerOpen = false;
+  document.getElementById("groupPicker").classList.remove("open");
+}
+
 function updateGroupFilterBtn(){
   const btn = document.getElementById("groupFilterBtn");
   const lbl = document.getElementById("groupFilterLabel");
@@ -1715,6 +1755,38 @@ function openMsPopup(e, id){
 function closeMsPopup(){
   const popup = document.getElementById("msPopup");
   popup.style.display = "none";
+}
+
+function showTooltip(e, id){
+  const t = TASKS.find(t=>String(t.id)===String(id)); if(!t) return;
+  const isPoint = t.start === t.end;
+  const pillLabel = t.status==="completed"?"Erledigt":t.status==="in_progress"?"Aktiv":"Offen";
+  const pillDotColor = t.status==="completed"?"var(--accent)":t.status==="in_progress"?"var(--today)":"var(--muted)";
+
+  document.getElementById("msTooltipTitle").textContent = t.name;
+  document.getElementById("msTooltipStatus").innerHTML = `<span class="status-pill" style="cursor:default"><span class="status-pill-dot" style="background:${pillDotColor};width:6px;height:6px;margin-right:4px"></span>${pillLabel}</span>`;
+  document.getElementById("msTooltipStart").textContent = fde(t.start);
+  document.getElementById("msTooltipEnd").textContent = isPoint ? "–" : fde(t.end);
+
+  const tooltip = document.getElementById("msTooltip");
+  tooltip.style.display = "block";
+  tooltip.style.visibility = "hidden";
+
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX + 12, y = e.clientY + 12;
+  const tw = tooltip.offsetWidth || 200, th = tooltip.offsetHeight || 100;
+  if(x + tw > vw - 10) x = e.clientX - tw - 12;
+  if(y + th > vh - 10) y = e.clientY - th - 12;
+  tooltip.style.left = Math.max(10, x) + "px";
+  tooltip.style.top  = Math.max(10, y) + "px";
+  tooltip.style.visibility = "";
+  tooltip.classList.add("show");
+}
+
+function hideTooltip(){
+  const tooltip = document.getElementById("msTooltip");
+  tooltip.classList.remove("show");
+  tooltip.style.display = "none";
 }
 
 function updateStats(){
