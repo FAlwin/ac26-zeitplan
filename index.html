@@ -761,6 +761,7 @@ body{
   display:flex;gap:8px;font-size:12px;margin-bottom:6px;color:var(--text);
 }
 .ms-popup-label{color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;width:50px;flex-shrink:0;font-weight:600}
+.ms-popup-row > div:last-child{color:var(--text);font-size:12px;font-weight:500}
 .ms-popup-close{
   position:absolute;top:8px;right:8px;
   background:none;border:none;color:var(--muted);
@@ -1650,7 +1651,7 @@ document.addEventListener("click", e => {
 function renderGroupPicker(){
   const wrap = document.getElementById("groupPickerItems");
   wrap.innerHTML = BUCKETS.map(b => {
-    const checked = selectedBuckets.size === 0 || selectedBuckets.has(b.key);
+    const checked = selectedBuckets.size === 0 || !selectedBuckets.has(b.key);
     return `<div class="group-picker-item" onclick="event.stopPropagation(); toggleBucketSel('${b.key}')">
       <div class="group-picker-check${checked?" checked":""}">✓</div>
       <div class="group-picker-dot" style="background:${b.color};${b.isMilestone?"transform:rotate(45deg);border-radius:1px;":""}""></div>
