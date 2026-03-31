@@ -979,6 +979,7 @@ const SCOPES = ["Tasks.ReadWrite", "User.Read"];
 let _msal = null;
 let currentAccount = null;
 let PLAN_ID = null;
+let isInitialLoad = true; // Für Fix 2: Spinner nur beim ersten Load anzeigen
 
 async function getMsal(){
   // Warte bis MSAL-Bibliothek vollständig geladen ist
@@ -1164,7 +1165,8 @@ function sortByOrderHint(arr){ return [...arr].sort((a,b) => a.orderHint < b.ord
 async function syncFromPlanner(){
   if(!currentAccount) return;
   setSyncState("loading", "Synchronisiere mit Planner…");
-  showLoading(true);
+  // Spinner nur beim initialen Load anzeigen
+  if(isInitialLoad) showLoading(true);
   try {
     const planId = await findPlanId();
 
@@ -1225,7 +1227,6 @@ async function syncFromPlanner(){
     const now = new Date();
     const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
     setSyncState("ok", `Zuletzt synchronisiert: ${timeStr} · ${TASKS.length} Aufgaben`);
-    showLoading(false);
 
     // Nur neu rendern wenn sich etwas geändert hat
     if(dataChanged(previousSnapshot, TASKS, BUCKETS)){
@@ -1233,9 +1234,15 @@ async function syncFromPlanner(){
       setTimeout(scrollToToday, 80);
     }
     previousSnapshot = makeSnapshot(TASKS, BUCKETS);
+    
+    // Nach dem ersten Sync: isInitialLoad = false
+    if(isInitialLoad) {
+      isInitialLoad = false;
+      showLoading(false);
+    }
   } catch(e) {
     setSyncState("err", "Fehler: " + e.message);
-    showLoading(false);
+    if(isInitialLoad) showLoading(false);
     console.error(e);
   }
 }
@@ -1641,6 +1648,8 @@ function selectAllGroups(){
   updateGroupFilterBtn();
   renderGroupPicker();
   render();
+  groupPickerOpen = false;
+  document.getElementById("groupPicker").classList.remove("open");
 }
 
 function updateGroupFilterBtn(){
