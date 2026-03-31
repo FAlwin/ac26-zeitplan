@@ -27,7 +27,7 @@
 
   --label-w:220px;
   --row-h:38px;
-  --ms-row-h:72px;
+  --ms-row-h:90px;
   --hdr-h:36px;
   --hdr2-h:22px;
   --group-h:26px;
@@ -612,46 +612,27 @@ body{
 .login-btn:hover{opacity:.85}
 .login-hint{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:12px}
 
-/* ── MILESTONE LABELS ── */
-.ms-label{
+/* ── MILESTONE FLAGS ── */
+.ms-flag-label{
   position:absolute;
+  background:var(--bg);
+  border:1px solid var(--border2);
+  border-radius:5px;
+  padding:3px 8px;
   font-family:'Syne',sans-serif;
   font-size:10px;font-weight:700;
-  color:var(--text);
   white-space:nowrap;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);
+  line-height:1.3;
   pointer-events:none;
-  transform:translateX(-50%);
-  top:4px;
-  max-width:90px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  text-align:center;
-  line-height:1.2;
 }
-.ms-label-bar{
+.ms-timeline{
   position:absolute;
-  font-family:'Syne',sans-serif;
-  font-size:10px;font-weight:700;
-  color:rgba(255,255,255,.95);
-  white-space:nowrap;
+  left:0;right:0;
+  height:2px;
+  background:var(--border2);
+  top:50%;transform:translateY(-50%);
   pointer-events:none;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  padding:0 7px;
-  line-height:1;
-}
-
-/* Bottom date label for milestone diamonds */
-.ms-date{
-  position:absolute;
-  font-family:'IBM Plex Mono',monospace;
-  font-size:8px;
-  color:var(--muted);
-  white-space:nowrap;
-  pointer-events:none;
-  transform:translateX(-50%);
-  bottom:3px;
-  text-align:center;
 }
 .stat-badge{
   font-family:'IBM Plex Mono',monospace;
@@ -902,7 +883,7 @@ body{
 
 <!-- GROUP PICKER -->
 <div class="group-picker" id="groupPicker">
-  <div class="group-picker-all" onclick="selectAllGroups()">Alle auswählen</div>
+  <div class="group-picker-all" onclick="event.stopPropagation();selectAllGroups()">Alle auswählen</div>
   <div class="group-picker-divider"></div>
   <div id="groupPickerItems"></div>
 </div>
@@ -1461,37 +1442,70 @@ function render(){
     const color = bucket.color;
 
     if(isMS){
-      // Milestone group – single row with all milestones
-      html += `<div class="gantt-row ms-group-row">`;
-      html += `<div class="rl ms-group-row" style="height:var(--ms-row-h)">`;
+      const isC = collapsed[bucket.key];
+      const CHAR_W = 6.5;
+      const DIAMOND_Y_FROM_BOTTOM = 10; // Raute sitzt 10px vom unteren Rand
+      const COLLAPSED_H = 28;
+
+      let rowH = COLLAPSED_H;
+      if(!isC && btasks.length){
+        const maxLen = Math.max(...btasks.map(t => t.name.length * CHAR_W));
+        // Bei -45°: Höhe = Textlänge * sin(45°) = Textlänge * 0.707
+        rowH = Math.max(Math.ceil(maxLen * 0.707) + DIAMOND_Y_FROM_BOTTOM + 4, 50);
+      }
+
+      const lineY = rowH - DIAMOND_Y_FROM_BOTTOM - 6; // Linie = Mitte der Raute
+      const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+      const bgFill   = isDark ? '#141412' : '#fef0e3';
+      const lineClr  = isDark ? 'rgba(255,255,255,0.11)' : 'rgba(10,71,56,0.16)';
+      const todayClr = isDark ? '#f5a623' : '#b06000';
+      const mutedClr = isDark ? '#7a8f85' : '#5a8272';
+
+      html += `<div class="gantt-row" style="height:${rowH}px;border-bottom:1px solid var(--border2)">`;
+      html += `<div class="rl" style="height:${rowH}px;cursor:pointer;padding:0 14px;gap:8px;background:var(--surface);align-items:flex-end;padding-bottom:6px" onclick="togGroup('${bucket.key}')">`;
       html += `<div style="width:6px;height:6px;transform:rotate(45deg);border-radius:1px;background:${color};flex-shrink:0"></div>`;
-      html += `<span class="ms-group-label">${esc(bucket.name)}</span>`;
+      html += `<span class="ms-group-label" style="flex:1">${esc(bucket.name)}</span>`;
+      html += `<span class="collapse-icon${isC?" collapsed":""}" style="color:${color}">▾</span>`;
       html += `</div>`;
-      html += `<div class="ms-tbars" style="width:${totalW}px;background:${color}0d;border-bottom:1px solid ${color}22">`;
-      if(tx>0) html += `<div class="today-line" style="left:${tx}px"><div class="today-label">Heute</div></div>`;
+
+      html += `<svg width="${totalW}" height="${rowH}" style="display:block;flex-shrink:0;background:${color}0d;border-bottom:1px solid ${color}22">`;
+      // Horizontale Linie
+      html += `<line x1="0" y1="${lineY}" x2="${totalW}" y2="${lineY}" stroke="${lineClr}" stroke-width="2"/>`;
+      // Heute-Linie
+      if(tx>0){
+        html += `<line x1="${tx}" y1="0" x2="${tx}" y2="${rowH}" stroke="${todayClr}" stroke-width="2" opacity="0.8"/>`;
+        html += `<text x="${tx+3}" y="12" font-family="IBM Plex Mono,monospace" font-size="8" fill="${todayClr}" font-weight="600">Heute</text>`;
+      }
+      // Meilensteine
       btasks.forEach(t => {
         const isPoint = t.start === t.end;
         const done = t.status === "completed";
+        const op = done ? 0.35 : 1;
+        const lColor = done ? mutedClr : color;
+
         if(isPoint){
           const x = cx(t.start);
-          const diamondTop = 28; // vertically centered in lower half
-          html += `<div style="position:absolute;left:${x-9}px;top:0;display:flex;flex-direction:column;align-items:center;cursor:pointer" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-          html += `<div class="ms-label" style="left:9px;top:4px;color:${done?"var(--muted)":color};opacity:${done?.45:1};max-width:80px">${esc(t.name)}</div>`;
-          html += `<div class="ms-diamond" style="position:relative;top:${diamondTop}px;background:${color};${done?"opacity:.35":""}"></div>`;
-          html += `<div class="ms-date" style="left:9px;top:${diamondTop+22}px;opacity:${done?.4:.7}">${fde(t.start)}</div>`;
-          html += `</div>`;
+          const d = 8; // halbe Diagonale
+          html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
+          html += `<polygon points="${x},${lineY-d} ${x+d},${lineY} ${x},${lineY+d} ${x-d},${lineY}" fill="${color}"/>`;
+          if(!isC){
+            // Text beginnt am rechten Punkt der Raute, wächst nach oben-rechts bei -45°
+            html += `<text x="${x+d}" y="${lineY}" transform="rotate(-45,${x+d},${lineY})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" dominant-baseline="auto">${esc(t.name)}</text>`;
+          }
+          html += `<title>${esc(t.name)}</title></g>`;
         } else {
           const x = cx(t.start), w2 = bw(t.start, t.end);
-          const barTop = 36;
-          html += `<div style="position:absolute;left:${x}px;top:0;width:${w2}px;cursor:pointer" onclick="openMsPopup(event,'${t.id}')" title="${esc(t.name)}">`;
-          // Label above bar
-          html += `<div style="position:absolute;top:4px;left:0;right:0;text-align:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:${done?"var(--muted)":color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;opacity:${done?.45:1}">${esc(t.name)}</div>`;
-          html += `<div class="ms-bar" style="position:absolute;top:${barTop}px;left:0;width:${w2}px;background:${color};${done?"opacity:.35":""}">`;
-          html += `</div>`;
-          html += `</div>`;
+          const barH = 10;
+          html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
+          html += `<rect x="${x}" y="${lineY-barH/2}" width="${w2}" height="${barH}" rx="5" fill="${color}"/>`;
+          if(!isC){
+            const mx = x + w2/2;
+            html += `<text x="${mx}" y="${lineY-barH/2}" transform="rotate(-45,${mx},${lineY-barH/2})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" dominant-baseline="auto">${esc(t.name)}</text>`;
+          }
+          html += `<title>${esc(t.name)}</title></g>`;
         }
       });
-      html += `</div></div>`;
+      html += `</svg></div>`;
     } else {
       // Regular group header
       const cnt = btasks.length;
@@ -1663,7 +1677,7 @@ function renderGroupPicker(){
   const wrap = document.getElementById("groupPickerItems");
   wrap.innerHTML = BUCKETS.map(b => {
     const checked = selectedBuckets.size === 0 || selectedBuckets.has(b.key);
-    return `<div class="group-picker-item" onclick="toggleBucketSel('${b.key}')">
+    return `<div class="group-picker-item" onclick="event.stopPropagation();toggleBucketSel('${b.key}')">
       <div class="group-picker-check${checked?" checked":""}">✓</div>
       <div class="group-picker-dot" style="background:${b.color};${b.isMilestone?"transform:rotate(45deg);border-radius:1px;":""}""></div>
       <span style="font-size:12px">${esc(b.name)}</span>
