@@ -387,9 +387,9 @@ body{
 /* Today line */
 .today-line{
   position:absolute;top:0;bottom:0;width:2px;
-  pointer-events:none;z-index:2;
+  pointer-events:none;z-index:5;
   background:var(--today);
-  opacity:.8;
+  box-shadow:0 0 8px 2px color-mix(in srgb,var(--today) 50%,transparent);
 }
 .today-label{
   position:absolute;
@@ -404,8 +404,7 @@ body{
   border:1px solid var(--today);
   white-space:nowrap;
   pointer-events:none;
-  z-index:5;
-  opacity:.9;
+  z-index:6;
 }
 
 /* ── MOBILE ── */
@@ -794,6 +793,7 @@ body{
 
 /* Bottom padding for mobile */
 .main{padding-bottom:env(safe-area-inset-bottom)}
+.gantt-inner{padding-bottom:24px}
 @media(max-width:640px){
   body{padding-bottom:8px}
 }</style>
