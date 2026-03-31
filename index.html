@@ -1449,9 +1449,11 @@ function render(){
 
       let rowH = COLLAPSED_H;
       if(!isC && btasks.length){
-        const maxLen = Math.max(...btasks.map(t => t.name.length * CHAR_W));
-        // Bei -45°: Höhe = Textlänge * sin(45°) = Textlänge * 0.707
-        rowH = Math.max(Math.ceil(maxLen * 0.707) + DIAMOND_Y_FROM_BOTTOM + 4, 50);
+        // Mit alternating top/bottom Labels: braucht mehr vertikal Platz
+        // Top-Label: ~12px über Mittellinie + ~8px Abstand
+        // Bottom-Label: ~20px unter Mittellinie + ~8px Abstand
+        // + Diamond: ~8px oben/unten
+        rowH = Math.max(60 + 8 + 8, 80); // min 80px für Labels oben + unten
       }
 
       const lineY = rowH - DIAMOND_Y_FROM_BOTTOM - 6; // Linie = Mitte der Raute
@@ -1476,35 +1478,83 @@ function render(){
         html += `<line x1="${tx}" y1="0" x2="${tx}" y2="${rowH}" stroke="${todayClr}" stroke-width="2" opacity="0.8"/>`;
         html += `<text x="${tx+3}" y="12" font-family="IBM Plex Mono,monospace" font-size="8" fill="${todayClr}" font-weight="600">Heute</text>`;
       }
-      // Meilensteine
-      btasks.forEach(t => {
-        const isPoint = t.start === t.end;
-        const done = t.status === "completed";
-        const op = done ? 0.35 : 1;
-        const lColor = done ? mutedClr : color;
-
-        if(isPoint){
+      // ── SMART COLLISION DETECTION FÜR MEILENSTEINE ──
+      if(!isC && btasks.length){
+        // 1. Berechne Positionen + Label-Breiten (geschätzt)
+        const msPositions = btasks.map((t, idx) => {
           const x = cx(t.start);
-          const d = 8; // halbe Diagonale
-          html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
-          html += `<polygon points="${x},${lineY-d} ${x+d},${lineY} ${x},${lineY+d} ${x-d},${lineY}" fill="${color}"/>`;
-          if(!isC){
-            // Text beginnt am rechten Punkt der Raute, wächst nach oben-rechts bei -45°
-            html += `<text x="${x+d}" y="${lineY}" transform="rotate(-45,${x+d},${lineY})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" dominant-baseline="auto">${esc(t.name)}</text>`;
+          const w = t.name.length * 5 + 20; // Geschätzte Label-Breite in Pixel
+          return { t, idx, x, labelW: w, hasCollision: false };
+        });
+
+        // 2. Collision Detection: prüfe paarweise
+        msPositions.forEach((p, i) => {
+          for(let j = i + 1; j < msPositions.length; j++){
+            const other = msPositions[j];
+            // Collision wenn: Abstand < (labelW_a + labelW_b) / 2
+            const minDist = (p.labelW + other.labelW) / 2;
+            if(Math.abs(p.x - other.x) < minDist){
+              p.hasCollision = true;
+              other.hasCollision = true;
+            }
           }
-          html += `<title>${esc(t.name)}</title></g>`;
-        } else {
-          const x = cx(t.start), w2 = bw(t.start, t.end);
-          const barH = 10;
-          html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')">`;
-          html += `<rect x="${x}" y="${lineY-barH/2}" width="${w2}" height="${barH}" rx="5" fill="${color}"/>`;
-          if(!isC){
-            const mx = x + w2/2;
-            html += `<text x="${mx}" y="${lineY-barH/2}" transform="rotate(-45,${mx},${lineY-barH/2})" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" dominant-baseline="auto">${esc(t.name)}</text>`;
+        });
+
+        // 3. Rendern mit Collision-Info
+        msPositions.forEach((p, idx) => {
+          const t = p.t;
+          const isPoint = t.start === t.end;
+          const done = t.status === "completed";
+          const op = done ? 0.35 : 1;
+          const lColor = done ? mutedClr : color;
+          const verticalPos = idx % 2 === 0 ? 'top' : 'bottom'; // Alternating
+          const showLabel = !p.hasCollision;
+          const collisionIndicatorY = verticalPos === 'top' ? lineY - 14 : lineY + 14;
+
+          if(isPoint){
+            const x = p.x;
+            const d = 8; // halbe Diagonale
+            html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')" class="ms-milestone${p.hasCollision?" has-collision":""}">`;
+            html += `<polygon points="${x},${lineY-d} ${x+d},${lineY} ${x},${lineY+d} ${x-d},${lineY}" fill="${color}"/>`;
+            
+            // Label (oben/unten alternierend)
+            if(showLabel){
+              const labelY = verticalPos === 'top' ? lineY - 12 : lineY + 20;
+              const textAnchor = 'middle';
+              html += `<text x="${x}" y="${labelY}" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" text-anchor="${textAnchor}" dominant-baseline="${verticalPos === 'top' ? 'auto' : 'hanging'}" class="ms-label">${esc(t.name)}</text>`;
+            }
+            
+            // Collision-Indikator (nur sichtbar wenn Label verborgen)
+            if(p.hasCollision){
+              html += `<circle cx="${x}" cy="${collisionIndicatorY}" r="3" fill="#c0392b" opacity="0.7" class="ms-collision-dot" style="pointer-events:none"/>`;
+            }
+            
+            // Tooltip (on-hover fallback für versteckte Labels)
+            html += `<title>${esc(t.name)}</title></g>`;
+          } else {
+            const x = p.x, w2 = bw(t.start, t.end);
+            const barH = 10;
+            html += `<g opacity="${op}" style="cursor:pointer" onclick="openMsPopup(event,'${t.id}')" class="ms-milestone${p.hasCollision?" has-collision":""}">`;
+            html += `<rect x="${x}" y="${lineY-barH/2}" width="${w2}" height="${barH}" rx="5" fill="${color}"/>`;
+            
+            // Label (oben/unten alternierend)
+            if(showLabel){
+              const mx = x + w2/2;
+              const labelY = verticalPos === 'top' ? lineY - 12 : lineY + 20;
+              const textAnchor = 'middle';
+              html += `<text x="${mx}" y="${labelY}" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="${lColor}" text-anchor="${textAnchor}" dominant-baseline="${verticalPos === 'top' ? 'auto' : 'hanging'}" class="ms-label">${esc(t.name)}</text>`;
+            }
+            
+            // Collision-Indikator (nur sichtbar wenn Label verborgen)
+            if(p.hasCollision){
+              const mx = x + w2/2;
+              html += `<circle cx="${mx}" cy="${collisionIndicatorY}" r="3" fill="#c0392b" opacity="0.7" class="ms-collision-dot" style="pointer-events:none"/>`;
+            }
+            
+            html += `<title>${esc(t.name)}</title></g>`;
           }
-          html += `<title>${esc(t.name)}</title></g>`;
-        }
-      });
+        });
+      }
       html += `</svg></div>`;
     } else {
       // Regular group header
