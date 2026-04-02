@@ -1889,8 +1889,10 @@ async function doExportPDF(){
     const msBuckets = BUCKETS.filter(b=>b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
     const regBuckets = BUCKETS.filter(b=>!b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
     const regTasks = TASKS.filter(t=>!BUCKETS.find(b=>b.key===t.bucket&&b.isMilestone)).length;
-    const RHpdf=22, MSHpdf=34, GHpdf=20, HDRpdf=28;
-    const rowsH = HDRpdf + msBuckets*MSHpdf + regBuckets*GHpdf + regTasks*RHpdf + 40;
+    const msTaskCount = TASKS.filter(t=>BUCKETS.find(b=>b.key===t.bucket&&b.isMilestone)).length;
+    const RHpdf=22, MSHpdf=34, GHpdf=20, HDRpdf=28, LHpdf=14;
+    const legendH = msTaskCount*LHpdf + 6;
+    const rowsH = HDRpdf + msBuckets*(MSHpdf+legendH) + regBuckets*GHpdf + regTasks*RHpdf + 40;
 
     // A4 landscape: 297×210mm, A3 landscape: 420×297mm
     const a4 = {pw:297, ph:210};
@@ -2014,45 +2016,56 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
     if(bucket.isMilestone){
       const mid = MSH / 2;
       let msNum = 0;
-      const legendItems = [];
-      // Einzeltermine: nummerierte Kreise
+      const legendItems = []; // {num, name, done, color, x, isRange, x2}
+      // Einzeltermine: nummerierte Kreise auf Zeitachse
       btasks.filter(t=>t.start===t.end).forEach(t=>{
         msNum++;
         const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
-        // Kreis
         h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};outline:2px solid ${bg};z-index:1;pointer-events:none;display:flex;align-items:center;justify-content:center">`;
         h+=`<span style="font-size:6.5px;font-weight:700;color:#fff;line-height:1">${msNum}</span>`;
         h+=`</div>`;
-        legendItems.push({num:msNum, name:t.name, done, color});
+        legendItems.push({num:msNum, name:t.name, done, color, x, isRange:false});
       });
-      // Zeitraum-Balken
+      // Zeitraum-Balken ebenfalls auf Zeitachse
       btasks.filter(t=>t.start!==t.end).forEach(t=>{
+        msNum++;
         const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
-        const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
-        h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:18px;top:${(rowH-18)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
-        if(w2>40) h+=`<span style="font-size:9px;font-weight:700;padding:0 6px;color:rgba(255,255,255,.93);white-space:nowrap;overflow:hidden">${esc(t.name)}</span>`;
+        const x2=xDateP(ad(pd(t.end),1),c,pv);
+        const w2=Math.max(x2-x,4);
+        h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${mid-7}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
         h+=`</div>`;
+        legendItems.push({num:msNum, name:t.name, done, color, x, x2, isRange:true});
       });
       h+=`</div></div>`;
-      // Legende für nummerierte Einzeltermine
+      // Legendenzeile: Einträge an x-Position ausgerichtet
       if(legendItems.length){
-        const cols = 3;
-        const rows = Math.ceil(legendItems.length/cols);
-        h+=`<div style="display:flex;border-bottom:1px solid ${bdr}">`;
-        h+=`<div style="width:${lw}px;min-width:${lw}px;border-right:1px solid ${bdr2};background:${color}08"></div>`;
-        h+=`<div style="flex:1;padding:4px 8px;background:${color}05;display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px 8px">`;
-        legendItems.forEach(li=>{
-          const op=li.done?.4:1;
-          h+=`<div style="display:flex;align-items:center;gap:4px;opacity:${op}">`;
-          h+=`<div style="width:13px;height:13px;border-radius:50%;background:${li.color};flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:6px;font-weight:700;color:#fff">${li.num}</span></div>`;
-          h+=`<span style="font-size:7.5px;color:${txt};${li.done?"text-decoration:line-through;opacity:.5":""}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(li.name)}</span>`;
-          h+=`</div>`;
+        const LH = 14; // Höhe pro Legendenzeile
+        const legendH = legendItems.length * LH + 6;
+        h+=`<div style="display:flex;height:${legendH}px;border-bottom:1px solid ${bdr}">`;
+        h+=`<div style="width:${lw}px;min-width:${lw}px;border-right:1px solid ${bdr2};background:${color}06;display:flex;align-items:center;padding:0 10px;font-size:7px;color:${color};opacity:.7;text-transform:uppercase;letter-spacing:.4px">Legende</div>`;
+        h+=`<div style="flex:1;position:relative;background:${color}04">`;
+        legendItems.forEach((li,i)=>{
+          const top = 3 + i*LH;
+          const op = li.done ? .4 : 1;
+          const nameStyle = `font-size:7.5px;color:${txt};${li.done?"text-decoration:line-through;opacity:.5;":""}white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px`;
+          if(li.isRange){
+            // Zeitraum: kleines Balken-Symbol + Name
+            const barW = Math.max((li.x2||li.x)-li.x, 8);
+            h+=`<div style="position:absolute;left:${li.x}px;top:${top}px;display:flex;align-items:center;gap:3px;opacity:${op}">`;
+            h+=`<div style="width:${Math.min(barW,24)}px;height:7px;background:${li.color};border-radius:2px;flex-shrink:0"></div>`;
+            h+=`<span style="${nameStyle}">${esc(li.name)}</span>`;
+            h+=`</div>`;
+          } else {
+            // Einzeltermin: nummerierter Kreis + Name
+            h+=`<div style="position:absolute;left:${Math.max(li.x-7,0)}px;top:${top}px;display:flex;align-items:center;gap:3px;opacity:${op}">`;
+            h+=`<div style="width:11px;height:11px;border-radius:50%;background:${li.color};flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:5.5px;font-weight:700;color:#fff">${li.num}</span></div>`;
+            h+=`<span style="${nameStyle}">${esc(li.name)}</span>`;
+            h+=`</div>`;
+          }
         });
         h+=`</div></div>`;
-      } else {
-        h+=`</div></div>`;
       }
-      return; // Meilenstein-Zeile vollständig geschrieben
+      return;
     }
     h+=`</div></div>`;
     if(!bucket.isMilestone){
