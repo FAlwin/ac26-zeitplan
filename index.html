@@ -1220,7 +1220,7 @@ async function syncFromPlanner(){
     });
 
     // Aufgaben laden und nach orderHint sortieren
-    const tasksResp = await graphGet("/planner/plans/" + planId + "/tasks");
+    const tasksResp = await graphGet("/planner/plans/" + planId + "/tasks?$select=id,title,bucketId,startDateTime,dueDateTime,percentComplete,priority,assignments,orderHint");
     const sortedTasks = sortByOrderHint(tasksResp.value);
 
     const newTasks = [];
@@ -1245,7 +1245,7 @@ async function syncFromPlanner(){
         start: start || due,
         end: due || start,
         status: pctToStatus(pt.percentComplete),
-        priority: ({"0":"urgent","1":"important","2":"medium","3":"low","5":"none"})[String(pt.priority)] || "none",
+        priority: ({"0":"urgent","1":"important","2":"medium","3":"low","5":"none"})[String(pt.priority ?? 5)] || "none",
         assignees: pt.assignments ? Object.keys(pt.assignments) : [],
         orderHint: pt.orderHint,
       });
