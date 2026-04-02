@@ -1889,7 +1889,7 @@ async function doExportPDF(){
     const msBuckets = BUCKETS.filter(b=>b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
     const regBuckets = BUCKETS.filter(b=>!b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
     const regTasks = TASKS.filter(t=>!BUCKETS.find(b=>b.key===t.bucket&&b.isMilestone)).length;
-    const RHpdf=22, MSHpdf=58, GHpdf=20, HDRpdf=28;
+    const RHpdf=22, MSHpdf=34, GHpdf=20, HDRpdf=28;
     const rowsH = HDRpdf + msBuckets*MSHpdf + regBuckets*GHpdf + regTasks*RHpdf + 40;
 
     // A4 landscape: 297×210mm, A3 landscape: 420×297mm
@@ -1985,7 +1985,7 @@ function xDateP(dt, c, pv){
 
 function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
   const bg="#fef0e3", surf="#f5e4d0", bdr="rgba(10,71,56,.08)", bdr2="rgba(10,71,56,.16)", txt="#0a4738", mut="#5a8272";
-  const RH=22, GH=20, MSH=58, HDR=28;
+  const RH=22, GH=20, MSH=34, HDR=28;
   let h=`<div style="font-family:Arial,sans-serif;background:${bg};color:${txt}">`;
   // Title
   h+=`<div style="padding:7px 10px;border-bottom:1px solid ${bdr2};display:flex;justify-content:space-between;align-items:center;background:${surf}">`;
@@ -2012,39 +2012,47 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
     h+=`<div style="width:5px;height:5px;${bucket.isMilestone?"transform:rotate(45deg);":""}border-radius:1px;background:${color}"></div>${esc(bucket.name)}</div>`;
     h+=`<div style="flex:1;position:relative;height:${rowH}px;background:${color}09">`;
     if(bucket.isMilestone){
-      const mid = MSH / 2; // Zeitachse in der Mitte der Zeile
-      let msIdx = 0;
-      btasks.forEach(t=>{
-        const isP=t.start===t.end;
-        const x=xDateP(pd(t.start),c,pv);
-        const done=t.status==="completed";
-        const op=done?.35:1;
-        if(isP){
-          const above = msIdx % 2 === 0; // abwechselnd oben/unten
-          msIdx++;
-          // Strichlinie
-          if(above){
-            h+=`<div style="position:absolute;left:${x-0.75}px;top:${mid-22}px;width:1.5px;height:22px;background:${color};opacity:${op*.6};pointer-events:none"></div>`;
-            // Label oben
-            h+=`<div style="position:absolute;left:${x}px;top:${mid-34}px;transform:translateX(-50%);font-size:7px;font-weight:700;color:${color};opacity:${op};white-space:nowrap;text-align:center;line-height:1.2;pointer-events:none">${esc(t.name)}</div>`;
-          } else {
-            h+=`<div style="position:absolute;left:${x-0.75}px;top:${mid+7}px;width:1.5px;height:22px;background:${color};opacity:${op*.6};pointer-events:none"></div>`;
-            // Label unten
-            h+=`<div style="position:absolute;left:${x}px;top:${mid+30}px;transform:translateX(-50%);font-size:7px;font-weight:700;color:${color};opacity:${op};white-space:nowrap;text-align:center;line-height:1.2;pointer-events:none">${esc(t.name)}</div>`;
-          }
-          // Kreis auf Mittellinie
-          h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};outline:2px solid ${bg};z-index:1;pointer-events:none"></div>`;
-        } else {
-          const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
-          h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:18px;top:${(rowH-18)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:visible">`;
-          if(w2>40){
-            h+=`<span style="font-size:9px;font-weight:700;padding:0 6px;color:rgba(255,255,255,.93);white-space:nowrap;overflow:hidden">${esc(t.name)}</span>`;
-          } else {
-            h+=`<span style="position:absolute;left:${w2+4}px;font-size:8px;font-weight:700;color:${color};opacity:${op};white-space:nowrap">${esc(t.name)}</span>`;
-          }
-          h+=`</div>`;
-        }
+      const mid = MSH / 2;
+      let msNum = 0;
+      const legendItems = [];
+      // Einzeltermine: nummerierte Kreise
+      btasks.filter(t=>t.start===t.end).forEach(t=>{
+        msNum++;
+        const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
+        // Kreis
+        h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};outline:2px solid ${bg};z-index:1;pointer-events:none;display:flex;align-items:center;justify-content:center">`;
+        h+=`<span style="font-size:6.5px;font-weight:700;color:#fff;line-height:1">${msNum}</span>`;
+        h+=`</div>`;
+        legendItems.push({num:msNum, name:t.name, done, color});
       });
+      // Zeitraum-Balken
+      btasks.filter(t=>t.start!==t.end).forEach(t=>{
+        const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
+        const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
+        h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:18px;top:${(rowH-18)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
+        if(w2>40) h+=`<span style="font-size:9px;font-weight:700;padding:0 6px;color:rgba(255,255,255,.93);white-space:nowrap;overflow:hidden">${esc(t.name)}</span>`;
+        h+=`</div>`;
+      });
+      h+=`</div></div>`;
+      // Legende für nummerierte Einzeltermine
+      if(legendItems.length){
+        const cols = 3;
+        const rows = Math.ceil(legendItems.length/cols);
+        h+=`<div style="display:flex;border-bottom:1px solid ${bdr}">`;
+        h+=`<div style="width:${lw}px;min-width:${lw}px;border-right:1px solid ${bdr2};background:${color}08"></div>`;
+        h+=`<div style="flex:1;padding:4px 8px;background:${color}05;display:grid;grid-template-columns:repeat(${cols},1fr);gap:2px 8px">`;
+        legendItems.forEach(li=>{
+          const op=li.done?.4:1;
+          h+=`<div style="display:flex;align-items:center;gap:4px;opacity:${op}">`;
+          h+=`<div style="width:13px;height:13px;border-radius:50%;background:${li.color};flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="font-size:6px;font-weight:700;color:#fff">${li.num}</span></div>`;
+          h+=`<span style="font-size:7.5px;color:${txt};${li.done?"text-decoration:line-through;opacity:.5":""}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(li.name)}</span>`;
+          h+=`</div>`;
+        });
+        h+=`</div></div>`;
+      } else {
+        h+=`</div></div>`;
+      }
+      return; // Meilenstein-Zeile vollständig geschrieben
     }
     h+=`</div></div>`;
     if(!bucket.isMilestone){
@@ -2063,7 +2071,9 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
           h+=`<div style="position:absolute;left:${x-5}px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;background:${color};opacity:${op};outline:2px solid ${bg};z-index:1"></div>`;
         } else {
           const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
-          h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${(RH-14)/2}px;background:${color};opacity:${op};border-radius:3px"></div>`;
+          h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${(RH-14)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
+          if(w2>40) h+=`<span style="font-size:8px;font-weight:600;padding:0 5px;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
+          h+=`</div>`;
         }
         h+=`</div></div>`;
       });
