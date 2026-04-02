@@ -328,7 +328,7 @@ body{
   top:10px;
   display:flex;align-items:center;overflow:hidden;
   transition:filter .12s,opacity .12s;
-  cursor:pointer;z-index:1;
+  cursor:pointer;z-index:3;
 }
 .bar:hover{filter:brightness(1.12)}
 .bar.done{opacity:.35}
@@ -337,6 +337,14 @@ body{
   padding:0 7px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;
   color:rgba(255,255,255,.92);
+  flex:1;
+}
+.bar-prio{
+  font-size:9px;font-weight:700;
+  padding:0 5px 0 0;
+  flex-shrink:0;
+  color:rgba(255,255,255,.85);
+  line-height:1;
 }
 
 /* Milestone bar (taller, more prominent) */
@@ -347,7 +355,7 @@ body{
   display:flex;align-items:center;overflow:hidden;
   transition:filter .12s;cursor:pointer;
   box-shadow:0 1px 4px rgba(0,0,0,.15);
-  z-index:1;
+  z-index:3;
 }
 .ms-bar:hover{filter:brightness(1.1)}
 .ms-bar-label{
@@ -366,7 +374,7 @@ body{
   border:2px solid var(--bg);
   cursor:pointer;
   transition:filter .12s,opacity .12s;
-  z-index:2;
+  z-index:4;
 }
 .diamond:hover{filter:brightness(1.15)}
 .diamond.done{opacity:.35}
@@ -380,7 +388,7 @@ body{
   border:2px solid var(--bg);
   cursor:pointer;
   transition:filter .12s,opacity .12s;
-  z-index:2;
+  z-index:4;
 }
 .ms-diamond:hover{filter:brightness(1.1)}
 .ms-diamond.done{opacity:.35}
@@ -388,7 +396,7 @@ body{
 /* Today line */
 .today-line{
   position:absolute;top:0;bottom:0;width:2px;
-  pointer-events:none;z-index:5;
+  pointer-events:none;z-index:2;
   background:var(--today);
   box-shadow:0 0 8px 2px color-mix(in srgb,var(--today) 50%,transparent);
 }
@@ -405,7 +413,7 @@ body{
   border:1px solid var(--today);
   white-space:nowrap;
   pointer-events:none;
-  z-index:6;
+  z-index:2;
 }
 
 /* ── MOBILE ── */
@@ -1503,8 +1511,10 @@ function render(){
             html += `<div class="diamond${done?" done":""}" style="left:${x-6}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
           } else {
             const x = cx(t.start), w2 = bw(t.start, t.end);
+            const icon = prioIcon(t.priority);
             html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
             if(w2 > 55) html += `<span class="bar-label">${esc(t.name)}</span>`;
+            if(icon && w2 > 24) html += `<span class="bar-prio" title="${PRIO_LABEL[t.priority||'none']}">${icon}</span>`;
             html += `</div>`;
           }
           html += `</div></div>`;
@@ -1738,6 +1748,9 @@ function startAutoSync(){
 
 // ── TASK MODAL ────────────────────────────────────────────────────────────────
 const PRIO_LABEL = {none:"–", low:"Niedrig", medium:"Mittel", urgent:"Hoch", important:"Wichtig"};
+// Prioritäts-Icons für Balken (nur urgent/important/medium/low, none = kein Icon)
+const PRIO_ICON = {urgent:"‼", important:"!", medium:"●", low:"↓", none:""};
+function prioIcon(p){ return PRIO_ICON[p||"none"] || ""; }
 
 async function openTaskModal(id){
   const t = TASKS.find(t=>String(t.id)===String(id)); if(!t) return;
@@ -1874,69 +1887,70 @@ async function doExportPDF(){
   await new Promise(r=>setTimeout(r,60));
 
   try{
-    const margin=8;
-    const DPI=200, mmToPx=DPI/25.4;
-
-    // Berechne wie viele Zeilen wir haben
-    const msBuckets = BUCKETS.filter(b=>b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
-    const regBuckets = BUCKETS.filter(b=>!b.isMilestone&&TASKS.some(t=>t.bucket===b.key)).length;
-    const regTasks = TASKS.filter(t=>!BUCKETS.find(b=>b.key===t.bucket&&b.isMilestone)).length;
-    const msTaskCount = TASKS.filter(t=>BUCKETS.find(b=>b.key===t.bucket&&b.isMilestone)).length;
-    const RHpdf=22, MSHpdf=34, GHpdf=20, HDRpdf=28, LHpdf=14;
-    const legendH = msTaskCount*LHpdf + 6;
-    const rowsH = HDRpdf + msBuckets*(MSHpdf+legendH) + regBuckets*GHpdf + regTasks*RHpdf + 40;
-
-    // A4 landscape: 297×210mm, A3 landscape: 420×297mm
-    const a4 = {pw:297, ph:210};
-    const a3 = {pw:420, ph:297};
-
+    const margin = 8;
     const labelPx = 180;
 
-    // Probiere erst A4, wenn Inhalt nicht passt → A3
-    function calcFit(format){
+    // A4 landscape: 297×210mm, A3 landscape: 420×297mm
+    const a4 = {pw:297, ph:210, name:"a4"};
+    const a3 = {pw:420, ph:297, name:"a3"};
+
+    // Berechne Spalten so dass Timeline horizontal auf A4 passt
+    function buildForFormat(format){
       const usableW_mm = format.pw - margin*2;
       const usableH_mm = format.ph - margin*2;
-      const usableW_px = Math.round(usableW_mm * mmToPx);
+      // 200 DPI
+      const usableW_px = Math.round(usableW_mm * 200/25.4);
       const timelinePx = usableW_px - labelPx;
-      const pCols = buildColsPDF(pv, pd(from), pd(to), 1);
-      const baseW = pCols.reduce((a,c)=>a+c.w,0);
-      const fitZ = baseW>0 ? timelinePx/baseW : 1;
+      const baseCols = buildColsPDF(pv, pd(from), pd(to), 1);
+      const baseW = baseCols.reduce((a,c)=>a+c.w,0);
+      const fitZ = baseW > 0 ? timelinePx / baseW : 1;
       const printCols = buildColsPDF(pv, pd(from), pd(to), fitZ);
       const totalW = printCols.reduce((a,c)=>a+c.w,0);
-      const imgH_mm = (rowsH / (labelPx+totalW)) * usableW_mm;
-      return {fits: imgH_mm <= usableH_mm, printCols, totalW, usableW_mm, usableH_mm};
+      return {printCols, totalW, usableW_mm, usableH_mm};
     }
 
-    let format = a4;
-    let {fits, printCols, totalW, usableW_mm, usableH_mm} = calcFit(a4);
-    if(!fits){
-      format = a3;
-      ({fits, printCols, totalW, usableW_mm, usableH_mm} = calcFit(a3));
-    }
+    // Erst mit A4-Breite rendern
+    const {printCols, totalW, usableW_mm, usableH_mm} = buildForFormat(a4);
 
     const printHTML = buildPrintHTML(printCols, totalW, labelPx, from, to, pv);
     const wrap = document.createElement("div");
     wrap.style.cssText = "position:fixed;top:-99999px;left:-99999px;background:#fef0e3;";
     wrap.innerHTML = printHTML;
-    wrap.style.width = (labelPx+totalW+16)+"px";
+    wrap.style.width = (labelPx + totalW + 16) + "px";
     document.body.appendChild(wrap);
     await new Promise(r=>setTimeout(r,280));
 
     const canvas = await html2canvas(wrap, {
       backgroundColor:"#fef0e3", scale:5,
       useCORS:true, allowTaint:true, logging:false,
-      width:labelPx+totalW, height:wrap.scrollHeight
+      width: labelPx + totalW + 16,
+      height: wrap.scrollHeight
     });
     document.body.removeChild(wrap);
 
+    // Tatsächliche Höhe in mm bei A4-Breite
+    const actualH_mm = (canvas.height / canvas.width) * (usableW_mm + 16 * 25.4/200);
+
+    // Wenn Höhe in A4 passt → A4, sonst A3
+    const format = actualH_mm <= usableH_mm ? a4 : a3;
+    const fUsableW = format.pw - margin*2;
+    const fUsableH = format.ph - margin*2;
+
     const {jsPDF} = window.jspdf;
-    const formatName = format === a3 ? "a3" : "a4";
-    const doc = new jsPDF({orientation:"landscape", unit:"mm", format:formatName});
+    const doc = new jsPDF({orientation:"landscape", unit:"mm", format:format.name});
     const imgData = canvas.toDataURL("image/jpeg", 0.98);
-    const imgW_mm = usableW_mm;
-    const imgH_mm = (canvas.height/canvas.width)*imgW_mm;
-    if(imgH_mm <= usableH_mm) doc.addImage(imgData,"JPEG",margin,margin,imgW_mm,imgH_mm);
-    else doc.addImage(imgData,"JPEG",margin,margin,imgW_mm*(usableH_mm/imgH_mm),usableH_mm);
+
+    // Bild skaliert auf nutzbare Breite, Höhe proportional
+    const imgW_mm = fUsableW;
+    const imgH_mm = (canvas.height / canvas.width) * imgW_mm;
+
+    if(imgH_mm <= fUsableH){
+      doc.addImage(imgData, "JPEG", margin, margin, imgW_mm, imgH_mm);
+    } else {
+      // Notfall: an Höhe anpassen (sollte mit A3 nicht passieren)
+      const scale = fUsableH / imgH_mm;
+      doc.addImage(imgData, "JPEG", margin, margin, imgW_mm * scale, fUsableH);
+    }
 
     const planTitle = document.getElementById("appTitle")?.textContent || "Zeitplan";
     doc.save(`${planTitle.replace(/[^a-zA-Z0-9äöüÄÖÜ_\-]/g,"_")}.pdf`);
