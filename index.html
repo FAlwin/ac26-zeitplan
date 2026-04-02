@@ -1252,13 +1252,29 @@ async function syncFromPlanner(){
         start: start || due,
         end: due || start,
         status: pctToStatus(pt.percentComplete),
-        priority: ({"1":"urgent","3":"important","5":"none","9":"none"})[String(pt.priority ?? 5)] || "none",
+        priority: ({"0":"urgent","1":"important","2":"medium","3":"low","5":"none"})[String(pt.priority ?? 5)] || "none",
         assignees: pt.assignments ? Object.keys(pt.assignments) : [],
         orderHint: pt.orderHint,
       });
 
       plannerMeta[pt.id] = { id: pt.id, etag: pt["@odata.etag"] || "" };
     });
+
+    // ── DEBUG PRIORITÄT – temporär, vor Release entfernen ──────────────────
+    const prioMap = {};
+    sortedTasks.forEach(pt => {
+      if(pt.priority !== undefined && pt.priority !== null){
+        const mapped = newTasks.find(t => t.id === pt.id)?.priority || "?";
+        if(!prioMap[pt.priority]) prioMap[pt.priority] = {mapped, examples:[]};
+        if(prioMap[pt.priority].examples.length < 2) prioMap[pt.priority].examples.push(pt.title);
+      }
+    });
+    console.table(Object.entries(prioMap).map(([raw, v]) => ({
+      "Rohwert (Planner)": raw,
+      "Gemappt als": v.mapped,
+      "Beispiele": v.examples.join(", ")
+    })));
+    // ── END DEBUG ──────────────────────────────────────────────────────────
 
     TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
 
@@ -1903,27 +1919,16 @@ async function doExportPDF(){
     const a3 = {pw:420, ph:297, name:"a3"};
 
     // Berechne Spalten so dass Timeline horizontal auf A4 passt
-    // Puffer am Ende: 1 Monat extra (Monat/Quartal), 3 Wochen extra (Woche)
-    const toDate = pd(to);
-    let toDatePdf;
-    if(pv === "week"){
-      toDatePdf = ad(toDate, 21); // 3 Wochen
-    } else if(pv === "quarter"){
-      toDatePdf = new Date(toDate.getFullYear(), toDate.getMonth()+2, 1);
-    } else {
-      toDatePdf = new Date(toDate.getFullYear(), toDate.getMonth()+2, 1); // 1 Monat extra
-    }
-
     function buildForFormat(format){
       const usableW_mm = format.pw - margin*2;
       const usableH_mm = format.ph - margin*2;
       // 200 DPI
       const usableW_px = Math.round(usableW_mm * 200/25.4);
       const timelinePx = usableW_px - labelPx;
-      const baseCols = buildColsPDF(pv, pd(from), toDatePdf, 1);
+      const baseCols = buildColsPDF(pv, pd(from), pd(to), 1);
       const baseW = baseCols.reduce((a,c)=>a+c.w,0);
       const fitZ = baseW > 0 ? timelinePx / baseW : 1;
-      const printCols = buildColsPDF(pv, pd(from), toDatePdf, fitZ);
+      const printCols = buildColsPDF(pv, pd(from), pd(to), fitZ);
       const totalW = printCols.reduce((a,c)=>a+c.w,0);
       return {printCols, totalW, usableW_mm, usableH_mm};
     }
@@ -2057,8 +2062,8 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
         const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
         const x2=xDateP(ad(pd(t.end),1),c,pv);
         const w2=Math.max(x2-x,14);
-        h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${mid-7}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;justify-content:center;overflow:hidden">`;
-        h+=`<span style="font-size:7px;font-weight:700;color:#fff;line-height:1">${msNum}</span>`;
+        h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${mid-7}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
+        h+=`<span style="font-size:6px;font-weight:700;color:#fff;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${msNum} ${esc(t.name)}</span>`;
         h+=`</div>`;
         legendItems.push({num:msNum, name:t.name, done, color, x, x2, isRange:true});
       });
