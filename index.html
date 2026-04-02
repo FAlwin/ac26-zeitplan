@@ -1507,11 +1507,12 @@ function render(){
           if(tx>0) html += `<div class="today-line" style="left:${tx}px"></div>`;
           if(isPoint){
             const x = cx(t.start);
-            html += `<div class="diamond${done?" done":""}" style="left:${x-6}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
+            html += `<div class="diamond${done?" done":""}" style="left:${x-6}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}">${prioBadge(t.priority)}</div>`;
           } else {
             const x = cx(t.start), w2 = bw(t.start, t.end);
-            html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
+            html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color};overflow:visible" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
             if(w2 > 55) html += `<span class="bar-label">${esc(t.name)}</span>`;
+            html += prioBadge(t.priority);
             html += `</div>`;
           }
           html += `</div></div>`;
@@ -1566,6 +1567,12 @@ function buildHeader(totalW){
 }
 
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
+// Prioritäts-Badge: nur urgent + important, Planner-Farben
+function prioBadge(priority){
+  if(priority === "urgent")   return `<span style="position:absolute;top:-4px;right:-4px;width:13px;height:13px;border-radius:50%;background:#c0392b;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;line-height:1;z-index:3;pointer-events:none">!</span>`;
+  if(priority === "important") return `<span style="position:absolute;top:-4px;right:-4px;width:13px;height:13px;border-radius:50%;background:#e67e22;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;line-height:1;z-index:3;pointer-events:none">!</span>`;
+  return "";
+}
 function setView(v){
   view = v;
   document.querySelectorAll(".vb").forEach(b => b.classList.toggle("active", b.dataset.v === v));
