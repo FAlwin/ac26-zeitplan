@@ -317,10 +317,10 @@ body{
   border:1px solid var(--border2);
 }
 
-/* Bar area */
-.tbars{height:var(--row-h);flex:1;position:relative}
-.ms-tbars{height:var(--ms-row-h);flex:1;position:relative}
-
+/* Bar area – isolation verhindert dass Kinder-z-index aus dem Container herausragt */
+.tbars{height:var(--row-h);flex:1;position:relative;isolation:isolate}
+.ms-tbars{height:var(--ms-row-h);flex:1;position:relative;isolation:isolate}
+.group-bars{height:var(--group-h);flex:1;position:relative;isolation:isolate}
 /* Bars */
 .bar{
   position:absolute;
@@ -328,7 +328,7 @@ body{
   top:10px;
   display:flex;align-items:center;overflow:hidden;
   transition:filter .12s,opacity .12s;
-  cursor:pointer;z-index:3;
+  cursor:pointer;z-index:2;
 }
 .bar:hover{filter:brightness(1.12)}
 .bar.done{opacity:.35}
@@ -340,12 +340,17 @@ body{
   flex:1;
 }
 .bar-prio{
-  font-size:9px;font-weight:700;
-  padding:0 5px 0 0;
+  font-size:8px;font-weight:800;
+  padding:1px 4px;margin-right:4px;
   flex-shrink:0;
-  color:rgba(255,255,255,.85);
-  line-height:1;
+  border-radius:3px;
+  line-height:1.4;
+  letter-spacing:0;
 }
+.bar-prio-urgent{background:rgba(255,255,255,.25);color:#fff}
+.bar-prio-important{background:rgba(255,255,255,.2);color:#fff}
+.bar-prio-medium{background:rgba(255,255,255,.15);color:rgba(255,255,255,.85)}
+.bar-prio-low{background:rgba(255,255,255,.12);color:rgba(255,255,255,.7)}
 
 /* Milestone bar (taller, more prominent) */
 .ms-bar{
@@ -355,7 +360,7 @@ body{
   display:flex;align-items:center;overflow:hidden;
   transition:filter .12s;cursor:pointer;
   box-shadow:0 1px 4px rgba(0,0,0,.15);
-  z-index:3;
+  z-index:2;
 }
 .ms-bar:hover{filter:brightness(1.1)}
 .ms-bar-label{
@@ -374,7 +379,7 @@ body{
   border:2px solid var(--bg);
   cursor:pointer;
   transition:filter .12s,opacity .12s;
-  z-index:4;
+  z-index:3;
 }
 .diamond:hover{filter:brightness(1.15)}
 .diamond.done{opacity:.35}
@@ -388,7 +393,7 @@ body{
   border:2px solid var(--bg);
   cursor:pointer;
   transition:filter .12s,opacity .12s;
-  z-index:4;
+  z-index:3;
 }
 .ms-diamond:hover{filter:brightness(1.1)}
 .ms-diamond.done{opacity:.35}
@@ -396,7 +401,7 @@ body{
 /* Today line */
 .today-line{
   position:absolute;top:0;bottom:0;width:2px;
-  pointer-events:none;z-index:2;
+  pointer-events:none;z-index:1;
   background:var(--today);
   box-shadow:0 0 8px 2px color-mix(in srgb,var(--today) 50%,transparent);
 }
@@ -413,7 +418,7 @@ body{
   border:1px solid var(--today);
   white-space:nowrap;
   pointer-events:none;
-  z-index:2;
+  z-index:1;
 }
 
 /* ── MOBILE ── */
@@ -1253,12 +1258,6 @@ async function syncFromPlanner(){
       });
 
       plannerMeta[pt.id] = { id: pt.id, etag: pt["@odata.etag"] || "" };
-
-      // ── DEBUG PRIORITÄT – temporär, vor Release entfernen ──────────────────
-      if(pt.priority !== undefined && pt.priority !== null){
-        console.log(`[PRIO-DEBUG] "${pt.title}" → Planner-Rohwert: ${pt.priority} → gemappt: "${newTasks[newTasks.length-1].priority}"`);
-      }
-      // ── END DEBUG ──────────────────────────────────────────────────────────
     });
 
     TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
@@ -1518,9 +1517,10 @@ function render(){
           } else {
             const x = cx(t.start), w2 = bw(t.start, t.end);
             const icon = prioIcon(t.priority);
+            const cls  = prioCls(t.priority);
             html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
             if(w2 > 55) html += `<span class="bar-label">${esc(t.name)}</span>`;
-            if(icon && w2 > 24) html += `<span class="bar-prio" title="${PRIO_LABEL[t.priority||'none']}">${icon}</span>`;
+            if(icon && w2 > 50) html += `<span class="bar-prio ${cls}">${icon}</span>`;
             html += `</div>`;
           }
           html += `</div></div>`;
@@ -1754,9 +1754,11 @@ function startAutoSync(){
 
 // ── TASK MODAL ────────────────────────────────────────────────────────────────
 const PRIO_LABEL = {none:"–", low:"Niedrig", medium:"Mittel", urgent:"Hoch", important:"Wichtig"};
-// Prioritäts-Icons für Balken (nur urgent/important/medium/low, none = kein Icon)
-const PRIO_ICON = {urgent:"‼", important:"!", medium:"●", low:"↓", none:""};
+// Prioritäts-Icons für Balken (nur bei regulären Tasks, nicht Meilensteinen)
+const PRIO_ICON = {urgent:"‼ Dringend", important:"! Wichtig", medium:"● Mittel", low:"↓ Niedrig", none:""};
+const PRIO_CLS  = {urgent:"bar-prio-urgent", important:"bar-prio-important", medium:"bar-prio-medium", low:"bar-prio-low", none:""};
 function prioIcon(p){ return PRIO_ICON[p||"none"] || ""; }
+function prioCls(p){  return PRIO_CLS[p||"none"]  || ""; }
 
 async function openTaskModal(id){
   const t = TASKS.find(t=>String(t.id)===String(id)); if(!t) return;
@@ -2033,7 +2035,7 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
       btasks.filter(t=>t.start===t.end).forEach(t=>{
         msNum++;
         const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
-        h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};box-shadow:0 0 0 2px ${bg};z-index:1;pointer-events:none;display:flex;align-items:center;justify-content:center">`;
+        h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};border:2px solid ${bg};outline:2px solid ${color};z-index:1;pointer-events:none;display:flex;align-items:center;justify-content:center">`;
         h+=`<span style="font-size:6.5px;font-weight:700;color:#fff;line-height:1">${msNum}</span>`;
         h+=`</div>`;
         legendItems.push({num:msNum, name:t.name, done, color, x, isRange:false});
@@ -2043,8 +2045,9 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
         msNum++;
         const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
         const x2=xDateP(ad(pd(t.end),1),c,pv);
-        const w2=Math.max(x2-x,4);
+        const w2=Math.max(x2-x,14);
         h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${mid-7}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
+        h+=`<span style="font-size:6px;font-weight:700;color:#fff;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${msNum} ${esc(t.name)}</span>`;
         h+=`</div>`;
         legendItems.push({num:msNum, name:t.name, done, color, x, x2, isRange:true});
       });
