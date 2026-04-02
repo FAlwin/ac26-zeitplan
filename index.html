@@ -1253,6 +1253,12 @@ async function syncFromPlanner(){
       });
 
       plannerMeta[pt.id] = { id: pt.id, etag: pt["@odata.etag"] || "" };
+
+      // ── DEBUG PRIORITÄT – temporär, vor Release entfernen ──────────────────
+      if(pt.priority !== undefined && pt.priority !== null){
+        console.log(`[PRIO-DEBUG] "${pt.title}" → Planner-Rohwert: ${pt.priority} → gemappt: "${newTasks[newTasks.length-1].priority}"`);
+      }
+      // ── END DEBUG ──────────────────────────────────────────────────────────
     });
 
     TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
