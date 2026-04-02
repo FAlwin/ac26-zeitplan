@@ -247,7 +247,6 @@ body{
   letter-spacing:.8px;text-transform:uppercase;
   color:var(--ms-color);
 }
-.ms-bars{height:var(--ms-row-h);flex:1;position:relative}
 
 /* Regular group header */
 .group-row{height:var(--group-h);border-bottom:1px solid var(--border2);border-top:1px solid var(--border)}
@@ -293,29 +292,11 @@ body{
 .task-row.selected .rl{background:var(--surface2)}
 .task-row .rl{height:var(--row-h);padding:0 14px;gap:8px}
 
-.status-dot{
-  width:7px;height:7px;border-radius:50%;
-  flex-shrink:0;
-  transition:transform .15s;
-}
-.status-dot:hover{transform:scale(1.4)}
-.status-not-started{background:var(--dim);outline:1.5px solid var(--muted)}
-.status-in-progress{background:var(--today)}
-.status-completed{background:var(--accent)}
-
 .task-name{
   font-size:12px;flex:1;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .task-name.done{text-decoration:line-through;opacity:.4}
-
-.task-asgn{
-  font-family:'IBM Plex Mono',monospace;font-size:9px;
-  color:var(--muted);flex-shrink:0;
-  background:var(--surface2);
-  padding:1px 5px;border-radius:3px;
-  border:1px solid var(--border2);
-}
 
 /* Bar area – isolation verhindert dass Kinder-z-index aus dem Container herausragt */
 .tbars{height:var(--row-h);flex:1;position:relative;isolation:isolate}
@@ -888,7 +869,7 @@ body{
   </button>
   <div class="sep"></div>
   <button class="done-toggle" id="doneToggle" onclick="toggleDone()">
-    <span class="done-toggle-dot"></span><span id="doneLabel">Erledigt</span>
+    <span class="done-toggle-dot"></span><span>Erledigt</span>
   </button>
 </div>
 
@@ -1177,10 +1158,6 @@ async function findPlanId(){
   throw new Error("Plan nicht gefunden. Bitte sicherstellen dass du Mitglied der Gruppe bist.");
 }
 
-// Store planner task IDs and eTags
-let plannerMeta = {};
-let bucketIdMap = {}; // bucketName → bucketId
-
 // Farben pro Bucket-Name (fix, da Planner keine Farben hat)
 const BUCKET_COLORS = {
   "Meilensteine": {color:"#1a5fa8", isMilestone:true},
@@ -1231,7 +1208,6 @@ async function syncFromPlanner(){
     const sortedTasks = sortByOrderHint(tasksResp.value);
 
     const newTasks = [];
-    plannerMeta = {};
 
     sortedTasks.forEach(pt => {
       // Backlog überspringen
@@ -1257,7 +1233,6 @@ async function syncFromPlanner(){
         orderHint: pt.orderHint,
       });
 
-      plannerMeta[pt.id] = { id: pt.id, etag: pt["@odata.etag"] || "" };
     });
 
     TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
@@ -1683,7 +1658,6 @@ function updateGroupFilterBtn(){
 function toggleDone(){
   showDone = !showDone;
   const btn = document.getElementById("doneToggle");
-  const lbl = document.getElementById("doneLabel");
   if(btn) btn.classList.toggle("hidden", !showDone);
   render();
 }
@@ -1798,7 +1772,7 @@ async function openTaskModal(id){
       <span class="tm-ml">Priorität</span>
       <span class="tm-mv">${PRIO_LABEL[t.priority||"none"]||"–"}</span>
     </div>
-    <div class="tm-meta-cell" id="tmAssignees" style="grid-column:1/-1">
+    <div class="tm-meta-cell" style="grid-column:1/-1">
       <span class="tm-ml">Bearbeiter</span>
       <span class="tm-mv" id="tmAssigneeNames" style="font-weight:400;color:var(--muted);font-size:11px">…</span>
     </div>`;
