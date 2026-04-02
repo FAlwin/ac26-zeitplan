@@ -1114,7 +1114,7 @@ let previousSnapshot = null;
 
 function makeSnapshot(tasks, buckets){
   return JSON.stringify({
-    tasks: tasks.map(t=>({id:t.id, name:t.name, start:t.start, end:t.end, status:t.status, bucket:t.bucket})),
+    tasks: tasks.map(t=>({id:t.id, name:t.name, start:t.start, end:t.end, status:t.status, bucket:t.bucket, priority:t.priority})),
     buckets: buckets.map(b=>b.key)
   });
 }
