@@ -1252,7 +1252,7 @@ async function syncFromPlanner(){
         start: start || due,
         end: due || start,
         status: pctToStatus(pt.percentComplete),
-        priority: ({"0":"urgent","1":"important","2":"medium","3":"low","5":"none","9":"none"})[String(pt.priority ?? 5)] || "none",
+        priority: ({"1":"urgent","3":"important","5":"none","9":"none"})[String(pt.priority ?? 5)] || "none",
         assignees: pt.assignments ? Object.keys(pt.assignments) : [],
         orderHint: pt.orderHint,
       });
