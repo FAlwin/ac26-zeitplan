@@ -326,7 +326,7 @@ body{
   position:absolute;
   height:18px;border-radius:4px;
   top:10px;
-  display:flex;align-items:center;overflow:hidden;
+  display:flex;align-items:center;overflow:visible;
   transition:filter .12s,opacity .12s;
   cursor:pointer;z-index:1;
 }
@@ -1510,7 +1510,7 @@ function render(){
             html += `<div class="diamond${done?" done":""}" style="left:${x-6}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}">${prioBadge(t.priority)}</div>`;
           } else {
             const x = cx(t.start), w2 = bw(t.start, t.end);
-            html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color};overflow:visible" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
+            html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
             if(w2 > 55) html += `<span class="bar-label">${esc(t.name)}</span>`;
             html += prioBadge(t.priority);
             html += `</div>`;
@@ -1908,18 +1908,27 @@ async function doExportPDF(){
     const labelPx = 180;
 
     // Probiere erst A4, wenn Inhalt nicht passt → A3
+    function extendTo(dateStr, view){
+      const d = pd(dateStr);
+      if(view==="week"){ d.setDate(d.getDate()+7); }
+      else if(view==="quarter"){ d.setMonth(d.getMonth()+3); }
+      else { d.setMonth(d.getMonth()+1); }
+      return d;
+    }
+    const toExtended = extendTo(to, pv);
     function calcFit(format){
       const usableW_mm = format.pw - margin*2;
       const usableH_mm = format.ph - margin*2;
       const usableW_px = Math.round(usableW_mm * mmToPx);
       const timelinePx = usableW_px - labelPx;
-      const pCols = buildColsPDF(pv, pd(from), pd(to), 1);
+      const pCols = buildColsPDF(pv, pd(from), toExtended, 1);
       const baseW = pCols.reduce((a,c)=>a+c.w,0);
       const fitZ = baseW>0 ? timelinePx/baseW : 1;
-      const printCols = buildColsPDF(pv, pd(from), pd(to), fitZ);
+      const printCols = buildColsPDF(pv, pd(from), toExtended, fitZ);
       const totalW = printCols.reduce((a,c)=>a+c.w,0);
-      const imgH_mm = (rowsH / (labelPx+totalW)) * usableW_mm;
-      return {fits: imgH_mm <= usableH_mm, printCols, totalW, usableW_mm, usableH_mm};
+      // Höhe: rowsH ist in CSS-px bei scale:1 → in mm umrechnen
+      const rowsH_mm = rowsH / mmToPx;
+      return {fits: rowsH_mm <= usableH_mm, printCols, totalW, usableW_mm, usableH_mm};
     }
 
     let format = a4;
@@ -2028,7 +2037,7 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
       btasks.filter(t=>t.start===t.end).forEach(t=>{
         msNum++;
         const x=xDateP(pd(t.start),c,pv), done=t.status==="completed", op=done?.35:1;
-        h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};outline:2px solid ${bg};z-index:1;pointer-events:none;display:flex;align-items:center;justify-content:center">`;
+        h+=`<div style="position:absolute;left:${x-7}px;top:${mid-7}px;width:14px;height:14px;border-radius:50%;background:${color};opacity:${op};box-shadow:0 0 0 2px ${bg};z-index:1;pointer-events:none;display:flex;align-items:center;justify-content:center">`;
         h+=`<span style="font-size:6.5px;font-weight:700;color:#fff;line-height:1">${msNum}</span>`;
         h+=`</div>`;
         legendItems.push({num:msNum, name:t.name, done, color, x, isRange:false});
@@ -2088,7 +2097,7 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
         h+=`</div>`;
         h+=`<div style="flex:1;position:relative;height:${RH}px">`;
         if(isP){
-          h+=`<div style="position:absolute;left:${x-5}px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;background:${color};opacity:${op};outline:2px solid ${bg};z-index:1"></div>`;
+          h+=`<div style="position:absolute;left:${x-5}px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;background:${color};opacity:${op};box-shadow:0 0 0 2px ${bg};z-index:1"></div>`;
         } else {
           const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
           h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${(RH-14)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
