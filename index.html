@@ -1260,6 +1260,22 @@ async function syncFromPlanner(){
       plannerMeta[pt.id] = { id: pt.id, etag: pt["@odata.etag"] || "" };
     });
 
+    // ── DEBUG PRIORITÄT – temporär, vor Release entfernen ──────────────────
+    const prioMap = {};
+    sortedTasks.forEach(pt => {
+      if(pt.priority !== undefined && pt.priority !== null){
+        const mapped = newTasks.find(t => t.id === pt.id)?.priority || "?";
+        if(!prioMap[pt.priority]) prioMap[pt.priority] = {mapped, examples:[]};
+        if(prioMap[pt.priority].examples.length < 2) prioMap[pt.priority].examples.push(pt.title);
+      }
+    });
+    console.table(Object.entries(prioMap).map(([raw, v]) => ({
+      "Rohwert (Planner)": raw,
+      "Gemappt als": v.mapped,
+      "Beispiele": v.examples.join(", ")
+    })));
+    // ── END DEBUG ──────────────────────────────────────────────────────────
+
     TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
 
     const now = new Date();
