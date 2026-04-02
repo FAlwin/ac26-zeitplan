@@ -326,7 +326,7 @@ body{
   position:absolute;
   height:18px;border-radius:4px;
   top:10px;
-  display:flex;align-items:center;overflow:visible;
+  display:flex;align-items:center;overflow:hidden;
   transition:filter .12s,opacity .12s;
   cursor:pointer;z-index:1;
 }
@@ -785,12 +785,6 @@ body{
 .group-picker-divider{
   height:1px;background:var(--border);margin:5px 0;
 }
-.group-picker-all{
-  font-family:'IBM Plex Mono',monospace;font-size:10px;
-  color:var(--muted);padding:4px 8px;cursor:pointer;
-  border-radius:4px;
-}
-.group-picker-all:hover{background:var(--surface2);color:var(--text)}
 
 /* Bottom padding for mobile */
 .main{padding-bottom:env(safe-area-inset-bottom)}
@@ -1332,7 +1326,6 @@ let hiddenBuckets = new Set(); // keys of buckets currently hidden
 let showDone = true;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
-const dark = () => window.matchMedia("(prefers-color-scheme:dark)").matches;
 function pd(s){const[y,m,d]=s.split("-").map(Number);const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt;}
 function fmt(dt){return dt.toISOString().slice(0,10);}
 function fde(s){const[y,m,d]=s.split("-");return`${d}.${m}.${y}`;}
@@ -1507,12 +1500,11 @@ function render(){
           if(tx>0) html += `<div class="today-line" style="left:${tx}px"></div>`;
           if(isPoint){
             const x = cx(t.start);
-            html += `<div class="diamond${done?" done":""}" style="left:${x-6}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}">${prioBadge(t.priority)}</div>`;
+            html += `<div class="diamond${done?" done":""}" style="left:${x-6}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()" title="${esc(t.name)}"></div>`;
           } else {
             const x = cx(t.start), w2 = bw(t.start, t.end);
             html += `<div class="bar${done?" done":""}" style="left:${x}px;width:${w2}px;background:${color}" onclick="openTaskModal('${t.id}')" onmouseover="showTooltip(event,'${t.id}')" onmouseout="hideTooltip()">`;
             if(w2 > 55) html += `<span class="bar-label">${esc(t.name)}</span>`;
-            html += prioBadge(t.priority);
             html += `</div>`;
           }
           html += `</div></div>`;
@@ -1567,12 +1559,6 @@ function buildHeader(totalW){
 }
 
 // ── INTERACTIONS ──────────────────────────────────────────────────────────────
-// Prioritäts-Badge: nur urgent + important, Planner-Farben
-function prioBadge(priority){
-  if(priority === "urgent")   return `<span style="position:absolute;top:-4px;right:-4px;width:13px;height:13px;border-radius:50%;background:#c0392b;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;line-height:1;z-index:3;pointer-events:none">!</span>`;
-  if(priority === "important") return `<span style="position:absolute;top:-4px;right:-4px;width:13px;height:13px;border-radius:50%;background:#e67e22;border:1.5px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;line-height:1;z-index:3;pointer-events:none">!</span>`;
-  return "";
-}
 function setView(v){
   view = v;
   document.querySelectorAll(".vb").forEach(b => b.classList.toggle("active", b.dataset.v === v));
@@ -1683,7 +1669,6 @@ function toggleDone(){
   const btn = document.getElementById("doneToggle");
   const lbl = document.getElementById("doneLabel");
   if(btn) btn.classList.toggle("hidden", !showDone);
-  if(lbl) lbl.textContent = showDone ? "Erledigt" : "Erledigt";
   render();
 }
 
@@ -1908,27 +1893,18 @@ async function doExportPDF(){
     const labelPx = 180;
 
     // Probiere erst A4, wenn Inhalt nicht passt → A3
-    function extendTo(dateStr, view){
-      const d = pd(dateStr);
-      if(view==="week"){ d.setDate(d.getDate()+7); }
-      else if(view==="quarter"){ d.setMonth(d.getMonth()+3); }
-      else { d.setMonth(d.getMonth()+1); }
-      return d;
-    }
-    const toExtended = extendTo(to, pv);
     function calcFit(format){
       const usableW_mm = format.pw - margin*2;
       const usableH_mm = format.ph - margin*2;
       const usableW_px = Math.round(usableW_mm * mmToPx);
       const timelinePx = usableW_px - labelPx;
-      const pCols = buildColsPDF(pv, pd(from), toExtended, 1);
+      const pCols = buildColsPDF(pv, pd(from), pd(to), 1);
       const baseW = pCols.reduce((a,c)=>a+c.w,0);
       const fitZ = baseW>0 ? timelinePx/baseW : 1;
-      const printCols = buildColsPDF(pv, pd(from), toExtended, fitZ);
+      const printCols = buildColsPDF(pv, pd(from), pd(to), fitZ);
       const totalW = printCols.reduce((a,c)=>a+c.w,0);
-      // Höhe: rowsH ist in CSS-px bei scale:1 → in mm umrechnen
-      const rowsH_mm = rowsH / mmToPx;
-      return {fits: rowsH_mm <= usableH_mm, printCols, totalW, usableW_mm, usableH_mm};
+      const imgH_mm = (rowsH / (labelPx+totalW)) * usableW_mm;
+      return {fits: imgH_mm <= usableH_mm, printCols, totalW, usableW_mm, usableH_mm};
     }
 
     let format = a4;
@@ -1942,7 +1918,7 @@ async function doExportPDF(){
     const wrap = document.createElement("div");
     wrap.style.cssText = "position:fixed;top:-99999px;left:-99999px;background:#fef0e3;";
     wrap.innerHTML = printHTML;
-    wrap.style.width = (labelPx+totalW)+"px";
+    wrap.style.width = (labelPx+totalW+16)+"px";
     document.body.appendChild(wrap);
     await new Promise(r=>setTimeout(r,280));
 
@@ -2084,29 +2060,27 @@ function buildPrintHTML(c, totalW, lw, fromStr, toStr, pv){
       return;
     }
     h+=`</div></div>`;
-    if(!bucket.isMilestone){
-      btasks.forEach(t=>{
-        const isP=t.start===t.end;
-        const x=xDateP(pd(t.start),c,pv);
-        const done=t.status==="completed";
-        const op=done?.35:1;
-        h+=`<div style="display:flex;height:${RH}px;border-bottom:1px solid ${bdr}">`;
-        h+=`<div style="width:${lw}px;min-width:${lw}px;padding:0 10px;display:flex;align-items:center;gap:5px;border-right:1px solid ${bdr2}">`;
-        h+=`<div style="width:5px;height:5px;border-radius:50%;background:${color};flex-shrink:0"></div>`;
-        h+=`<span style="font-size:9px;${done?"text-decoration:line-through;opacity:.5":""}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
+    btasks.forEach(t=>{
+      const isP=t.start===t.end;
+      const x=xDateP(pd(t.start),c,pv);
+      const done=t.status==="completed";
+      const op=done?.35:1;
+      h+=`<div style="display:flex;height:${RH}px;border-bottom:1px solid ${bdr}">`;
+      h+=`<div style="width:${lw}px;min-width:${lw}px;padding:0 10px;display:flex;align-items:center;gap:5px;border-right:1px solid ${bdr2}">`;
+      h+=`<div style="width:5px;height:5px;border-radius:50%;background:${color};flex-shrink:0"></div>`;
+      h+=`<span style="font-size:9px;${done?"text-decoration:line-through;opacity:.5;":""}white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
+      h+=`</div>`;
+      h+=`<div style="flex:1;position:relative;height:${RH}px">`;
+      if(isP){
+        h+=`<div style="position:absolute;left:${x-5}px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;background:${color};opacity:${op};box-shadow:0 0 0 2px ${bg};z-index:1"></div>`;
+      } else {
+        const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
+        h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${(RH-14)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
+        if(w2>40) h+=`<span style="font-size:8px;font-weight:600;padding:0 5px;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
         h+=`</div>`;
-        h+=`<div style="flex:1;position:relative;height:${RH}px">`;
-        if(isP){
-          h+=`<div style="position:absolute;left:${x-5}px;top:50%;transform:translateY(-50%);width:11px;height:11px;border-radius:50%;background:${color};opacity:${op};box-shadow:0 0 0 2px ${bg};z-index:1"></div>`;
-        } else {
-          const w2=Math.max(xDateP(ad(pd(t.end),1),c,pv)-x,4);
-          h+=`<div style="position:absolute;left:${x}px;width:${w2}px;height:14px;top:${(RH-14)/2}px;background:${color};opacity:${op};border-radius:3px;display:flex;align-items:center;overflow:hidden">`;
-          if(w2>40) h+=`<span style="font-size:8px;font-weight:600;padding:0 5px;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>`;
-          h+=`</div>`;
-        }
-        h+=`</div></div>`;
-      });
-    }
+      }
+      h+=`</div></div>`;
+    });
   });
   // Legend
   h+=`<div style="display:flex;align-items:center;gap:12px;padding:6px 10px;border-top:1px solid ${bdr2};font-size:8px;color:${mut}">`;
