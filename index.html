@@ -413,6 +413,11 @@ body{
   .bar-label{font-size:9px;padding:0 5px}
   .ms-bar-label{font-size:9px;padding:0 6px}
 }
+.sync-text-short{display:none}
+@media(max-width:640px){
+  .sync-text-full{display:none}
+  .sync-text-short{display:inline}
+}
 @media(max-width:400px){
   :root{--label-w:130px}
   .btn span.btn-text{display:none}
@@ -824,7 +829,7 @@ body{
   </div>
   <div class="hdr-right">
     <button class="sync-btn" id="syncBtn" onclick="syncFromPlanner()" disabled>
-      <span id="syncIcon">↻</span><span class="btn-text"> Synchronisieren</span>
+      <span id="syncIcon">↻</span><span class="sync-text-full"> Synchronisieren</span><span class="sync-text-short"> Sync</span>
     </button>
     <button class="btn btn-ghost" onclick="openPdfModal()">
       <span>↓</span><span class="btn-text">PDF</span>
