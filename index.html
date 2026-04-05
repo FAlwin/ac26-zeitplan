@@ -418,8 +418,7 @@ body{
   .sync-text-full{display:none}
   .sync-text-short{display:inline}
   #authName{display:none}
-  .title{display:none}
-  .subtitle{display:none}
+  .hdr-title{display:none}
 }
 @media(max-width:400px){
   :root{--label-w:130px}
@@ -826,7 +825,7 @@ body{
       <rect x="2" y="10.8" width="6" height="2.2" rx="1" fill="var(--accent-fg)"/>
     </svg>
   </div>
-  <div>
+  <div class="hdr-title">
     <div class="title" id="appTitle"></div>
     <div class="subtitle">Gantt-Ansicht für Microsoft Planner</div>
   </div>
@@ -1735,8 +1734,9 @@ function startAutoSync(){
 }
 
 // ── TASK MODAL ────────────────────────────────────────────────────────────────
-const PRIO_LABEL = {none:"–", low:"Niedrig", medium:"Mittel", urgent:"Hoch", important:"Wichtig"};
+const PRIO_LABEL = {none:"–", low:"Niedrig", medium:"Mittel", urgent:"Dringend", important:"Wichtig"};
 // Prioritäts-Icons für Balken (nur bei regulären Tasks, nicht Meilensteinen)
+const PRIO_SYM  = {urgent:"‼", important:"!", medium:"●", low:"↓", none:""};
 const PRIO_ICON = {urgent:"‼ Dringend", important:"! Wichtig", medium:"● Mittel", low:"↓ Niedrig", none:""};
 const PRIO_CLS  = {urgent:"bar-prio-urgent", important:"bar-prio-important", medium:"bar-prio-medium", low:"bar-prio-low", none:""};
 function prioIcon(p){ return PRIO_ICON[p||"none"] || ""; }
@@ -1778,7 +1778,7 @@ async function openTaskModal(id){
     </div>
     <div class="tm-meta-cell">
       <span class="tm-ml">Priorität</span>
-      <span class="tm-mv">${PRIO_LABEL[t.priority||"none"]||"–"}</span>
+      <span class="tm-mv">${t.priority && t.priority !== "none" ? PRIO_SYM[t.priority] + " " : ""}${PRIO_LABEL[t.priority||"none"]||"–"}</span>
     </div>
     <div class="tm-meta-cell" style="grid-column:1/-1">
       <span class="tm-ml">Bearbeiter</span>
