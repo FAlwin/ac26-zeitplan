@@ -1174,7 +1174,7 @@ const BUCKET_COLORS = {
   "VLL":          {color:"#2563a8"},
   "Deko":         {color:"#8b1a5a"},
   "Verwaltung":   {color:"#c0392b"},
-  "Allgemein":    {color:"#6b7280"},
+  "Allgemeines":  {color:"#6b7280"},
 };
 function colorForBucket(name){
   return BUCKET_COLORS[name] || {color:"#4a8070"};
@@ -1198,18 +1198,24 @@ async function syncFromPlanner(){
     // BUCKETS-Array dynamisch aus Planner aufbauen
     bucketIdMap = {};
     BUCKETS.length = 0;
+    const milestoneB = [], regularB = [];
     sortedBuckets.forEach(b => {
       bucketIdMap[b.name] = b.id;
       if(b.name === "Backlog / Ideen") return; // Backlog ausblenden
       const cfg = colorForBucket(b.name);
-      BUCKETS.push({
+      const entry = {
         key: b.id, // Planner Bucket-ID als Key
         name: b.name,
         color: cfg.color,
         isMilestone: cfg.isMilestone || false,
         orderHint: b.orderHint,
-      });
+      };
+      if(cfg.isMilestone) milestoneB.push(entry);
+      else regularB.push(entry);
     });
+    // Milestone-Bucket immer zuerst, Rest in Planner-Reihenfolge
+    milestoneB.forEach(b => BUCKETS.push(b));
+    regularB.forEach(b => BUCKETS.push(b));
 
     // Aufgaben laden und nach orderHint sortieren
     const tasksResp = await graphGet("/planner/plans/" + planId + "/tasks?$select=id,title,bucketId,startDateTime,dueDateTime,percentComplete,priority,assignments,orderHint");
