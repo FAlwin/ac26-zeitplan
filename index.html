@@ -812,7 +812,7 @@ body{
       <svg width="16" height="16" viewBox="0 0 21 21" fill="currentColor"><path d="M0 0h10v10H0zm11 0h10v10H11zM0 11h10v10H0zm11 0h10v10H11z"/></svg>
       Mit Microsoft anmelden
     </button>
-    <div class="login-hint" id="loginHint"></div>
+    <div class="login-hint" id="loginHint">Du wirst zur Microsoft-Anmeldung weitergeleitet.</div>
   </div>
 </div>
 
@@ -996,8 +996,9 @@ const MSAL_CONFIG = {
     clientId: "7ed3329b-9519-4f28-a63c-94f2033d6c59",
     authority: "https://login.microsoftonline.com/c8829a13-44bc-4793-96d5-1d06c2eab6ca",
     redirectUri: window.location.origin + window.location.pathname,
+    navigateToLoginRequestUrl: false,
   },
-  cache: { cacheLocation: "sessionStorage" }
+  cache: { cacheLocation: "localStorage" }
 };
 const SCOPES = ["Tasks.ReadWrite", "User.Read", "User.ReadBasic.All"];
 let _msal = null;
@@ -1040,13 +1041,10 @@ async function initAuth(){
 }
 
 async function doLogin(){
-  setLoginHint("Fenster wird geöffnet…");
+  setLoginHint("Weiterleitung zur Anmeldung…");
   try {
     const m = await getMsal();
-    const resp = await m.loginPopup({scopes: SCOPES});
-    currentAccount = resp.account;
-    showApp();
-    await syncFromPlanner();
+    await m.loginRedirect({scopes: SCOPES});
   } catch(e) {
     setLoginHint("Anmeldung fehlgeschlagen: " + e.message);
   }
@@ -1055,11 +1053,7 @@ async function doLogin(){
 async function doLogout(){
   if(!confirm("Abmelden?")) return;
   const m = await getMsal();
-  m.logoutPopup({account: currentAccount});
-  currentAccount = null;
-  document.getElementById("loginScreen").style.display = "flex";
-  document.getElementById("syncBtn").disabled = true;
-  document.getElementById("authBtn").style.display = "none";
+  await m.logoutRedirect({account: currentAccount});
 }
 
 function showApp(){
@@ -1083,8 +1077,8 @@ async function getToken(){
     const resp = await m.acquireTokenSilent(req);
     return resp.accessToken;
   } catch(e) {
-    const resp = await m.acquireTokenPopup(req);
-    return resp.accessToken;
+    await m.acquireTokenRedirect(req);
+    throw new Error("Weiterleitung zur Anmeldung…");
   }
 }
 
