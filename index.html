@@ -812,7 +812,7 @@ body{
       <svg width="16" height="16" viewBox="0 0 21 21" fill="currentColor"><path d="M0 0h10v10H0zm11 0h10v10H11zM0 11h10v10H0zm11 0h10v10H11z"/></svg>
       Mit Microsoft anmelden
     </button>
-    <div class="login-hint" id="loginHint">Du wirst zur Microsoft-Anmeldung weitergeleitet.</div>
+    <div class="login-hint" id="loginHint"></div>
   </div>
 </div>
 
@@ -996,9 +996,8 @@ const MSAL_CONFIG = {
     clientId: "7ed3329b-9519-4f28-a63c-94f2033d6c59",
     authority: "https://login.microsoftonline.com/c8829a13-44bc-4793-96d5-1d06c2eab6ca",
     redirectUri: window.location.origin + window.location.pathname,
-    navigateToLoginRequestUrl: false,
   },
-  cache: { cacheLocation: "localStorage" }
+  cache: { cacheLocation: "sessionStorage" }
 };
 const SCOPES = ["Tasks.ReadWrite", "User.Read", "User.ReadBasic.All"];
 let _msal = null;
@@ -1027,10 +1026,7 @@ async function initAuth(){
   try {
     const resp = await m.handleRedirectPromise();
     if(resp) currentAccount = resp.account;
-  } catch(e){
-    console.warn("Redirect handling:", e);
-    setLoginHint("Anmeldung fehlgeschlagen: " + e.message);
-  }
+  } catch(e){ console.warn("Redirect handling:", e); }
 
   if(!currentAccount){
     const accounts = m.getAllAccounts();
@@ -1044,10 +1040,13 @@ async function initAuth(){
 }
 
 async function doLogin(){
-  setLoginHint("Weiterleitung zur Anmeldung\u2026");
+  setLoginHint("Fenster wird geöffnet…");
   try {
     const m = await getMsal();
-    await m.loginRedirect({scopes: SCOPES});
+    const resp = await m.loginPopup({scopes: SCOPES});
+    currentAccount = resp.account;
+    showApp();
+    await syncFromPlanner();
   } catch(e) {
     setLoginHint("Anmeldung fehlgeschlagen: " + e.message);
   }
@@ -1056,7 +1055,11 @@ async function doLogin(){
 async function doLogout(){
   if(!confirm("Abmelden?")) return;
   const m = await getMsal();
-  await m.logoutRedirect({account: currentAccount});
+  m.logoutPopup({account: currentAccount});
+  currentAccount = null;
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("syncBtn").disabled = true;
+  document.getElementById("authBtn").style.display = "none";
 }
 
 function showApp(){
@@ -1080,10 +1083,8 @@ async function getToken(){
     const resp = await m.acquireTokenSilent(req);
     return resp.accessToken;
   } catch(e) {
-    // Silent fehlgeschlagen – Redirect zur erneuten Authentifizierung
-    await m.acquireTokenRedirect(req);
-    // Seite wird weitergeleitet – danach wird nicht mehr ausgeführt
-    throw new Error("Weiterleitung zur Anmeldung\u2026");
+    const resp = await m.acquireTokenPopup(req);
+    return resp.accessToken;
   }
 }
 
@@ -1166,13 +1167,14 @@ async function findPlanId(){
 
 // Farben pro Bucket-Name (fix, da Planner keine Farben hat)
 const BUCKET_COLORS = {
-  "Meilensteine": {color:"#1a5fa8", isMilestone:true},
+  "Termine":      {color:"#1a5fa8", isMilestone:true},
   "Geistliches":  {color:"#1a7a55"},
   "PR":           {color:"#b06000"},
   "Story":        {color:"#7c3aed"},
   "VLL":          {color:"#2563a8"},
   "Deko":         {color:"#8b1a5a"},
   "Verwaltung":   {color:"#c0392b"},
+  "Allgemein":    {color:"#6b7280"},
 };
 function colorForBucket(name){
   return BUCKET_COLORS[name] || {color:"#4a8070"};
