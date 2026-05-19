@@ -827,7 +827,7 @@ body{
   </div>
   <div class="hdr-title">
     <div class="title" id="appTitle"></div>
-    <div class="subtitle">Gantt-Ansicht für Microsoft Planner</div>
+    <div class="subtitle">Gantt-Ansicht für Microsoft Planner · v2.0.18</div>
   </div>
   <div class="hdr-right">
     <button class="sync-btn" id="syncBtn" onclick="syncFromPlanner()" disabled>
@@ -1097,7 +1097,7 @@ let previousSnapshot = null;
 function makeSnapshot(tasks, buckets){
   return JSON.stringify({
     tasks: tasks.map(t=>({id:t.id, name:t.name, start:t.start, end:t.end, status:t.status, bucket:t.bucket, priority:t.priority})),
-    buckets: buckets.map(b=>b.key)
+    buckets: buckets.map(b=>({k:b.key, n:b.name, m:!!b.isMilestone, c:b.color}))
   });
 }
 
@@ -1217,17 +1217,18 @@ async function syncFromPlanner(){
 
     const newTasks = [];
 
+    const skipped = {backlog:0, noBucket:0, noDate:0};
     sortedTasks.forEach(pt => {
       // Backlog überspringen
       const bucketName = Object.keys(bucketIdMap).find(k => bucketIdMap[k] === pt.bucketId) || "";
-      if(bucketName === "Backlog / Ideen") return;
+      if(bucketName === "Backlog / Ideen"){ skipped.backlog++; return; }
       // Nur Aufgaben mit Bucket der in BUCKETS ist
       const bucket = BUCKETS.find(b => b.key === pt.bucketId);
-      if(!bucket) return;
+      if(!bucket){ skipped.noBucket++; console.warn("[Sync] Task ohne Bucket-Match:", pt.title, "→ bucketId:", pt.bucketId); return; }
 
       const start = pt.startDateTime ? pt.startDateTime.slice(0,10) : null;
       const due   = pt.dueDateTime   ? pt.dueDateTime.slice(0,10)   : null;
-      if(!start && !due) return; // ohne Datum nicht anzeigen
+      if(!start && !due){ skipped.noDate++; console.warn("[Sync] Task ohne Datum:", pt.title, "(Bucket:", bucketName + ")"); return; }
 
       newTasks.push({
         id: pt.id,
@@ -1243,17 +1244,18 @@ async function syncFromPlanner(){
 
     });
 
+    console.log("[Sync] Buckets:", BUCKETS.map(b=>b.name + (b.isMilestone?" ⭐":"")), "| Übersprungen:", skipped, "| Geladen:", newTasks.length);
     TASKS = newTasks.sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
 
     const now = new Date();
     const timeStr = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
     setSyncState("ok", `Zuletzt synchronisiert: ${timeStr} · ${TASKS.length} Aufgaben`);
 
-    // Nur neu rendern wenn sich etwas geändert hat
-    if(dataChanged(previousSnapshot, TASKS, BUCKETS)){
-      render();
-      setTimeout(scrollToToday, 80);
-    }
+    // Immer rendern – Change-Detection nur fürs Logging
+    const changed = dataChanged(previousSnapshot, TASKS, BUCKETS);
+    render();
+    if(changed && isInitialLoad) setTimeout(scrollToToday, 80);
+    if(changed) console.log("[Sync] Daten geändert – neu gerendert", {tasks:TASKS.length, buckets:BUCKETS.map(b=>b.name)});
     previousSnapshot = makeSnapshot(TASKS, BUCKETS);
     
     // Nach dem ersten Sync: isInitialLoad = false
