@@ -787,6 +787,20 @@ body{
   height:1px;background:var(--border);margin:5px 0;
 }
 
+/* ── PLAN PICKER ── */
+.plan-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-radius:8px;
+  border:1px solid var(--border2);
+  cursor:pointer;transition:all .12s;
+  background:var(--surface2);
+}
+.plan-item:hover{background:var(--surface3);border-color:var(--accent)}
+.plan-item-active{border-color:var(--accent);background:rgba(10,71,56,.06)}
+@media(prefers-color-scheme:dark){
+  .plan-item-active{background:rgba(93,219,168,.07)}
+}
+
 /* Bottom padding for mobile */
 .main{padding-bottom:env(safe-area-inset-bottom)}
 .gantt-inner{padding-bottom:24px}
@@ -827,11 +841,14 @@ body{
   </div>
   <div class="hdr-title">
     <div class="title" id="appTitle"></div>
-    <div class="subtitle">Gantt-Ansicht für Microsoft Planner · v2.0.19</div>
+    <div class="subtitle">Gantt-Ansicht für Microsoft Planner · v2.1.0</div>
   </div>
   <div class="hdr-right">
     <button class="sync-btn" id="syncBtn" onclick="syncFromPlanner()" disabled>
       <span id="syncIcon">↻</span><span class="sync-text-full"> Synchronisieren</span><span class="sync-text-short"> Sync</span>
+    </button>
+    <button class="btn btn-ghost" id="planSwitchBtn" onclick="openPlanModal()" style="display:none" title="Planner-Board wechseln">
+      <span>⊞</span><span class="btn-text" id="planSwitchLabel">Board</span>
     </button>
     <button class="btn btn-ghost" onclick="openPdfModal()">
       <span>↓</span><span class="btn-text">PDF</span>
@@ -969,6 +986,25 @@ body{
   </div>
 </div>
 
+<!-- PLAN MODAL -->
+<div class="mo" id="planModal" onclick="if(event.target===this)closePlanModal()">
+  <div class="md">
+    <button class="md-x" onclick="closePlanModal()">✕</button>
+    <div class="md-title">Planner-Board wählen</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:14px">
+      Pläne aus dem Team <strong style="color:var(--text)">AC Planung</strong>
+    </div>
+    <div id="planList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:20px;text-align:center">
+        <span class="spinner"></span>Lade Pläne…
+      </div>
+    </div>
+    <div class="fa" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="closePlanModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -1003,8 +1039,9 @@ const MSAL_CONFIG = {
 const SCOPES = ["Tasks.ReadWrite", "User.Read", "User.ReadBasic.All"];
 let _msal = null;
 let currentAccount = null;
-let PLAN_ID = null;
-let isInitialLoad = true; // Für Fix 2: Spinner nur beim ersten Load anzeigen
+// Plan-ID: aus localStorage laden (bleibt über Reload erhalten)
+let PLAN_ID = localStorage.getItem("ac_zeitplan_plan_id") || null;
+let isInitialLoad = true;
 
 async function getMsal(){
   // Warte bis MSAL-Bibliothek vollständig geladen ist
@@ -1060,6 +1097,7 @@ function showApp(){
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("syncBtn").disabled = false;
   document.getElementById("authBtn").style.display = "";
+  document.getElementById("planSwitchBtn").style.display = "";
   document.getElementById("syncBar").style.display = "flex";
   const name = currentAccount.name || currentAccount.username;
   document.getElementById("authName").textContent = name.split(" ")[0];
@@ -1137,8 +1175,10 @@ function setSyncState(state, msg){
   }
 }
 
-// Ziel-Plan: exakter Titel (verhindert dass Leitungsboard o.ä. gefunden wird)
+// Ziel-Plan: Fallback-Titel wenn noch nichts in localStorage gespeichert ist
 const TARGET_PLAN_TITLE = "AC26 Planboard";
+// Team-Name für die Plan-Auswahl (nur Pläne aus diesem Team werden angezeigt)
+const TARGET_TEAM_NAME = "AC Planung";
 
 async function findPlanId(){
   const groups = await graphGet("/me/memberOf?$select=id,displayName");
@@ -1147,27 +1187,32 @@ async function findPlanId(){
     if(!g.id) continue;
     try {
       const plans = await graphGet("/groups/" + g.id + "/planner/plans");
-      plans.value.forEach(p => allPlans.push({...p, groupName: g.displayName}));
+      plans.value.forEach(p => allPlans.push({...p, groupName: g.displayName, groupId: g.id}));
     } catch(e){ /* Gruppe hat möglicherweise kein Planner */ }
   }
   console.log("[Sync] Alle gefundenen Pläne:", allPlans.map(p => `"${p.title}" (${p.groupName})`));
 
-  // 1. Exakter Titel-Match (sicherste Variante)
-  let plan = allPlans.find(p => p.title === TARGET_PLAN_TITLE);
-  // 2. Fallback: bekannte Plan-ID aus vorherigem Sync
-  if(!plan && PLAN_ID) plan = allPlans.find(p => p.id === PLAN_ID);
-  // 3. Fallback: enthält "Planboard" (ursprüngliches Verhalten, aber nur wenn nichts anderes passt)
-  if(!plan) plan = allPlans.find(p => p.title.includes("Planboard"));
+  // 1. In localStorage gespeicherte Plan-ID (höchste Priorität)
+  const savedId = localStorage.getItem("ac_zeitplan_plan_id");
+  let plan = savedId ? allPlans.find(p => p.id === savedId) : null;
+  // 2. Fallback: exakter Titel-Match
+  if(!plan) plan = allPlans.find(p => p.title === TARGET_PLAN_TITLE);
+  // 3. Fallback: enthält "Planboard" aus Team "AC Planung"
+  if(!plan) plan = allPlans.find(p => p.groupName === TARGET_TEAM_NAME && p.title.includes("Planboard"));
 
   if(plan){
     PLAN_ID = plan.id;
+    localStorage.setItem("ac_zeitplan_plan_id", PLAN_ID);
     const titleEl = document.getElementById("appTitle");
     if(titleEl) titleEl.textContent = plan.title;
     document.title = plan.title;
+    // Plan-Button-Label aktualisieren
+    const lbl = document.getElementById("planSwitchLabel");
+    if(lbl) lbl.textContent = plan.title;
     console.log("[Sync] Gewählter Plan:", plan.title, "→", plan.id);
     return PLAN_ID;
   }
-  throw new Error(`Plan "${TARGET_PLAN_TITLE}" nicht gefunden. Bitte Titel in TARGET_PLAN_TITLE anpassen.`);
+  throw new Error(`Kein passender Plan gefunden. Bitte über den Board-Button einen Plan auswählen.`);
 }
 
 // Farben pro Bucket-Name (fix, da Planner keine Farben hat)
@@ -1729,6 +1774,74 @@ function updateStats(){
   el("stat-completed", cp);
   const tot = document.getElementById("totalCount");
   if(tot) tot.textContent = all.length + " Aufgaben gesamt";
+}
+
+// ── PLAN MODAL ────────────────────────────────────────────────────────────────
+let _cachedPlans = null; // Einmal laden, dann cachen bis Modal neu geöffnet wird
+
+async function openPlanModal(){
+  document.getElementById("planModal").classList.add("open");
+  _cachedPlans = null; // Cache leeren damit frische Liste geladen wird
+  renderPlanList(`<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:20px;text-align:center"><span class="spinner"></span>Lade Pläne…</div>`);
+  try {
+    const groups = await graphGet("/me/memberOf?$select=id,displayName");
+    const plans = [];
+    for(const g of groups.value){
+      if(!g.id) continue;
+      if(g.displayName !== TARGET_TEAM_NAME) continue; // nur "AC Planung"
+      try {
+        const resp = await graphGet("/groups/" + g.id + "/planner/plans");
+        resp.value.forEach(p => plans.push({...p, groupName: g.displayName}));
+      } catch(e){}
+    }
+    _cachedPlans = plans;
+    if(!plans.length){
+      renderPlanList(`<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:20px;text-align:center">Keine Pläne im Team „${TARGET_TEAM_NAME}" gefunden.</div>`);
+      return;
+    }
+    const currentId = localStorage.getItem("ac_zeitplan_plan_id");
+    const items = plans.map(p => {
+      const active = p.id === currentId;
+      return `<div class="plan-item${active?" plan-item-active":""}" onclick="selectPlan('${p.id}','${esc(p.title)}')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:28px;height:28px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--accent-fg)"><rect x="2" y="3" width="8" height="2.2" rx="1"/><rect x="2" y="6.9" width="11" height="2.2" rx="1"/><rect x="2" y="10.8" width="6" height="2.2" rx="1"/></svg>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(p.title)}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-top:1px">${esc(p.groupName)}</div>
+          </div>
+        </div>
+        ${active ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:var(--accent);background:rgba(10,71,56,.1);padding:2px 7px;border-radius:10px;flex-shrink:0">Aktiv</span>` : ""}
+      </div>`;
+    }).join("");
+    renderPlanList(items);
+  } catch(e){
+    renderPlanList(`<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:20px;text-align:center">Fehler: ${esc(e.message)}</div>`);
+  }
+}
+
+function renderPlanList(html){
+  const el = document.getElementById("planList");
+  if(el) el.innerHTML = html;
+}
+
+async function selectPlan(id, title){
+  localStorage.setItem("ac_zeitplan_plan_id", id);
+  PLAN_ID = id;
+  const titleEl = document.getElementById("appTitle");
+  if(titleEl) titleEl.textContent = title;
+  document.title = title;
+  const lbl = document.getElementById("planSwitchLabel");
+  if(lbl) lbl.textContent = title;
+  closePlanModal();
+  // Sofort mit neuem Plan synchronisieren
+  isInitialLoad = true;
+  await syncFromPlanner();
+}
+
+function closePlanModal(){
+  document.getElementById("planModal").classList.remove("open");
 }
 
 // ── AUTO-SYNC ─────────────────────────────────────────────────────────────────
