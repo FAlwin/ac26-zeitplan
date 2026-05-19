@@ -827,7 +827,7 @@ body{
   </div>
   <div class="hdr-title">
     <div class="title" id="appTitle"></div>
-    <div class="subtitle">Gantt-Ansicht für Microsoft Planner · v2.0.18</div>
+    <div class="subtitle">Gantt-Ansicht für Microsoft Planner · v2.0.19</div>
   </div>
   <div class="hdr-right">
     <button class="sync-btn" id="syncBtn" onclick="syncFromPlanner()" disabled>
@@ -1137,26 +1137,37 @@ function setSyncState(state, msg){
   }
 }
 
+// Ziel-Plan: exakter Titel (verhindert dass Leitungsboard o.ä. gefunden wird)
+const TARGET_PLAN_TITLE = "AC26 Planboard";
+
 async function findPlanId(){
-  // Immer neu laden damit Titeländerungen synchronisiert werden
   const groups = await graphGet("/me/memberOf?$select=id,displayName");
+  const allPlans = [];
   for(const g of groups.value){
     if(!g.id) continue;
     try {
       const plans = await graphGet("/groups/" + g.id + "/planner/plans");
-      const plan = plans.value.find(p => p.title.includes("Planboard") || p.title.includes("Zeitplan") || (PLAN_ID && p.id === PLAN_ID));
-      if(plan){
-        PLAN_ID = plan.id;
-        const titleEl = document.getElementById("appTitle");
-        if(titleEl) titleEl.textContent = plan.title;
-        document.title = plan.title;
-        return PLAN_ID;
-      }
+      plans.value.forEach(p => allPlans.push({...p, groupName: g.displayName}));
     } catch(e){ /* Gruppe hat möglicherweise kein Planner */ }
   }
-  // Fallback: vorherige Plan-ID benutzen falls vorhanden
-  if(PLAN_ID) return PLAN_ID;
-  throw new Error("Plan nicht gefunden. Bitte sicherstellen dass du Mitglied der Gruppe bist.");
+  console.log("[Sync] Alle gefundenen Pläne:", allPlans.map(p => `"${p.title}" (${p.groupName})`));
+
+  // 1. Exakter Titel-Match (sicherste Variante)
+  let plan = allPlans.find(p => p.title === TARGET_PLAN_TITLE);
+  // 2. Fallback: bekannte Plan-ID aus vorherigem Sync
+  if(!plan && PLAN_ID) plan = allPlans.find(p => p.id === PLAN_ID);
+  // 3. Fallback: enthält "Planboard" (ursprüngliches Verhalten, aber nur wenn nichts anderes passt)
+  if(!plan) plan = allPlans.find(p => p.title.includes("Planboard"));
+
+  if(plan){
+    PLAN_ID = plan.id;
+    const titleEl = document.getElementById("appTitle");
+    if(titleEl) titleEl.textContent = plan.title;
+    document.title = plan.title;
+    console.log("[Sync] Gewählter Plan:", plan.title, "→", plan.id);
+    return PLAN_ID;
+  }
+  throw new Error(`Plan "${TARGET_PLAN_TITLE}" nicht gefunden. Bitte Titel in TARGET_PLAN_TITLE anpassen.`);
 }
 
 // Farben pro Bucket-Name (fix, da Planner keine Farben hat)
