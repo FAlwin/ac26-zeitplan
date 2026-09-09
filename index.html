@@ -841,7 +841,7 @@ body{
   </div>
   <div class="hdr-title">
     <div class="title" id="appTitle"></div>
-    <div class="subtitle">Gantt-Ansicht für Microsoft Planner · v2.1.0</div>
+    <div class="subtitle">Gantt-Ansicht für Microsoft Planner · v2.2.0</div>
   </div>
   <div class="hdr-right">
     <button class="sync-btn" id="syncBtn" onclick="syncFromPlanner()" disabled>
@@ -1039,8 +1039,41 @@ const MSAL_CONFIG = {
 const SCOPES = ["Tasks.ReadWrite", "User.Read", "User.ReadBasic.All"];
 let _msal = null;
 let currentAccount = null;
+
+// ── BOARD PER URL ─────────────────────────────────────────────────────────────
+// Eigene URL je AC-Jahr, damit jedes Jahr seinen eigenen Teams-Tab bekommt:
+//   …/ac26-zeitplan/            → wie bisher (gespeicherte Wahl bzw. Fallback)
+//   …/ac26-zeitplan/?board=AC27 → festgenagelt auf das AC27-Board
+// ACHTUNG: redirectUri ist origin+pathname – der ?-Teil fällt bei der
+// Microsoft-Weiterleitung weg. Er wird deshalb VOR jedem Redirect geparkt
+// (stashBoardForRedirect) und in initAuth() wiederhergestellt. Ohne das landet
+// der AC27-Tab beim ersten Login auf dem AC26-Board.
+const BOARD_STASH_KEY = "ac_zeitplan_board_stash";
+
+function readBoardFromUrl(){
+  const raw = new URLSearchParams(window.location.search).get("board");
+  if(!raw) return null;
+  const v = raw.trim().toUpperCase();
+  return /^AC\d{2}$/.test(v) ? v : null; // nur AC + zwei Ziffern
+}
+let ACTIVE_BOARD = readBoardFromUrl();
+
+// Es gibt ZWEI Stellen, die zu Microsoft weiterleiten (doLogin und getToken).
+// Beide parken den Board-Wert über diesen Helfer – nicht einzeln nachbauen.
+function stashBoardForRedirect(){
+  if(!ACTIVE_BOARD) return;
+  try { sessionStorage.setItem(BOARD_STASH_KEY, ACTIVE_BOARD); } catch(e){}
+}
+
+// Plan-ID getrennt je Board ablegen, sonst schlägt ein Umschalten im AC27-Tab
+// in den AC26-Tab durch. Ohne ?board bleibt der alte globale Schlüssel gültig,
+// damit bestehende Nutzer und der bestehende Teams-Link unverändert laufen.
+function planStorageKey(){
+  return ACTIVE_BOARD ? "ac_zeitplan_plan_id:" + ACTIVE_BOARD : "ac_zeitplan_plan_id";
+}
+
 // Plan-ID: aus localStorage laden (bleibt über Reload erhalten)
-let PLAN_ID = localStorage.getItem("ac_zeitplan_plan_id") || null;
+let PLAN_ID = localStorage.getItem(planStorageKey()) || null;
 let isInitialLoad = true;
 
 async function getMsal(){
@@ -1059,11 +1092,32 @@ async function getMsal(){
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
+
+// Nach der Microsoft-Weiterleitung ist der ?board=…-Teil der Adresse weg.
+// Hier wird er aus dem geparkten Wert wiederhergestellt – samt Adresszeile,
+// damit ein späterer Reload wieder allein aus der URL funktioniert.
+function restoreBoardAfterRedirect(){
+  if(readBoardFromUrl()) return; // Parameter noch da → nichts zu tun
+  let stashed = null;
+  try {
+    stashed = sessionStorage.getItem(BOARD_STASH_KEY);
+    sessionStorage.removeItem(BOARD_STASH_KEY);
+  } catch(e){ return; }
+  if(!stashed) return;
+  ACTIVE_BOARD = stashed;
+  PLAN_ID = localStorage.getItem(planStorageKey()) || null;
+  history.replaceState(null, "", window.location.pathname + "?board=" + encodeURIComponent(stashed));
+  console.log("[Board] Nach Login wiederhergestellt:", stashed);
+}
+
 async function initAuth(){
   const m = await getMsal();
   try {
     const resp = await m.handleRedirectPromise();
-    if(resp) currentAccount = resp.account;
+    if(resp){
+      currentAccount = resp.account;
+      restoreBoardAfterRedirect();
+    }
   } catch(e){ console.warn("Redirect handling:", e); }
 
   if(!currentAccount){
@@ -1081,6 +1135,7 @@ async function doLogin(){
   setLoginHint("Weiterleitung zur Anmeldung…");
   try {
     const m = await getMsal();
+    stashBoardForRedirect();
     await m.loginRedirect({scopes: SCOPES});
   } catch(e) {
     setLoginHint("Anmeldung fehlgeschlagen: " + e.message);
@@ -1090,6 +1145,10 @@ async function doLogin(){
 async function doLogout(){
   if(!confirm("Abmelden?")) return;
   const m = await getMsal();
+  // Dritter Weg nach Microsoft: nach dem Abmelden landet man auf der Adresse
+  // OHNE ?board. Ohne dieses Parken waere der AC27-Tab nach Abmelden/Anmelden
+  // wieder ein AC26-Tab.
+  stashBoardForRedirect();
   await m.logoutRedirect({account: currentAccount});
 }
 
@@ -1097,7 +1156,10 @@ function showApp(){
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("syncBtn").disabled = false;
   document.getElementById("authBtn").style.display = "";
-  document.getElementById("planSwitchBtn").style.display = "";
+  // Bei per URL festgenageltem Board waere der Umschalter irrefuehrend: der
+  // Auto-Sync loest das Board jedes Mal neu auf und wuerde eine abweichende
+  // Wahl nach wenigen Minuten still zuruecksetzen. Das Jahr wechselt man per Tab.
+  document.getElementById("planSwitchBtn").style.display = ACTIVE_BOARD ? "none" : "";
   document.getElementById("syncBar").style.display = "flex";
   const name = currentAccount.name || currentAccount.username;
   document.getElementById("authName").textContent = name.split(" ")[0];
@@ -1115,6 +1177,7 @@ async function getToken(){
     const resp = await m.acquireTokenSilent(req);
     return resp.accessToken;
   } catch(e) {
+    stashBoardForRedirect();
     await m.acquireTokenRedirect(req);
     throw new Error("Weiterleitung zur Anmeldung…");
   }
@@ -1192,17 +1255,33 @@ async function findPlanId(){
   }
   console.log("[Sync] Alle gefundenen Pläne:", allPlans.map(p => `"${p.title}" (${p.groupName})`));
 
-  // 1. In localStorage gespeicherte Plan-ID (höchste Priorität)
-  const savedId = localStorage.getItem("ac_zeitplan_plan_id");
+  // 1. Gespeicherte Plan-ID – aber nur, wenn der Plan noch existiert. Ist er
+  //    gelöscht oder archiviert, wird weitergesucht statt zu scheitern.
+  const savedId = localStorage.getItem(planStorageKey());
   let plan = savedId ? allPlans.find(p => p.id === savedId) : null;
-  // 2. Fallback: exakter Titel-Match
-  if(!plan) plan = allPlans.find(p => p.title === TARGET_PLAN_TITLE);
-  // 3. Fallback: enthält "Planboard" aus Team "AC Planung"
-  if(!plan) plan = allPlans.find(p => p.groupName === TARGET_TEAM_NAME && p.title.includes("Planboard"));
+  if(savedId && !plan) console.warn("[Sync] Gespeicherter Plan existiert nicht mehr:", savedId);
+
+  if(ACTIVE_BOARD){
+    // Per URL auf ein Jahr festgenagelt: nur Boards dieses Jahres aus dem
+    // Planungsteam. Eine gespeicherte Wahl, die nicht dazu passt, wird
+    // verworfen – ein AC27-Tab darf niemals still das AC26-Board zeigen.
+    const matchesBoard = p => p.groupName === TARGET_TEAM_NAME && p.title.toUpperCase().startsWith(ACTIVE_BOARD);
+    if(plan && !matchesBoard(plan)) plan = null;
+    if(!plan) plan = allPlans.find(matchesBoard);
+    if(!plan) throw new Error(`Kein Board für ${ACTIVE_BOARD} im Team „${TARGET_TEAM_NAME}" gefunden.`);
+  } else {
+    // 2. Fallback: exakter Titel – bevorzugt aus dem Planungsteam. Die
+    //    Team-Einschränkung fehlte hier, obwohl Fallback 3 sie schon hatte;
+    //    so konnte ein gleichnamiges Board aus einer anderen Gruppe gewinnen.
+    if(!plan) plan = allPlans.find(p => p.groupName === TARGET_TEAM_NAME && p.title === TARGET_PLAN_TITLE);
+    if(!plan) plan = allPlans.find(p => p.title === TARGET_PLAN_TITLE);
+    // 3. Fallback: enthält "Planboard" aus Team "AC Planung"
+    if(!plan) plan = allPlans.find(p => p.groupName === TARGET_TEAM_NAME && p.title.includes("Planboard"));
+  }
 
   if(plan){
     PLAN_ID = plan.id;
-    localStorage.setItem("ac_zeitplan_plan_id", PLAN_ID);
+    localStorage.setItem(planStorageKey(), PLAN_ID);
     const titleEl = document.getElementById("appTitle");
     if(titleEl) titleEl.textContent = plan.title;
     document.title = plan.title;
@@ -1799,7 +1878,7 @@ async function openPlanModal(){
       renderPlanList(`<div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:20px;text-align:center">Keine Pläne im Team „${TARGET_TEAM_NAME}" gefunden.</div>`);
       return;
     }
-    const currentId = localStorage.getItem("ac_zeitplan_plan_id");
+    const currentId = localStorage.getItem(planStorageKey());
     const items = plans.map(p => {
       const active = p.id === currentId;
       return `<div class="plan-item${active?" plan-item-active":""}" onclick="selectPlan('${p.id}','${esc(p.title)}')">
@@ -1827,7 +1906,7 @@ function renderPlanList(html){
 }
 
 async function selectPlan(id, title){
-  localStorage.setItem("ac_zeitplan_plan_id", id);
+  localStorage.setItem(planStorageKey(), id);
   PLAN_ID = id;
   const titleEl = document.getElementById("appTitle");
   if(titleEl) titleEl.textContent = title;
